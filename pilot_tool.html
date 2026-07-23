@@ -1,0 +1,676 @@
+<title>أداة الدراسة - الاعتماد على تفسيرات الذكاء الاصطناعي</title>
+<style>
+  :root{
+    --ink:#1B2420; --ink-soft:#55666B; --paper:#EEF1EE; --surface:#FFFFFF;
+    --surface-2:#F5F7F4; --border:#D8DED9; --accent:#2B6E71; --accent-ink:#FFFFFF;
+    --accent-soft:#DCEBEA; --scam:#B3432B; --scam-soft:#F6E4DF; --safe:#3F7D53;
+    --safe-soft:#E3EFE6; --radius:14px;
+    --shadow:0 1px 2px rgba(20,30,28,.06), 0 10px 28px -14px rgba(20,30,28,.22);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#E7EBE7; --ink-soft:#9FB0AC; --paper:#101617; --surface:#182124;
+      --surface-2:#1E2A2C; --border:#2B3A3D; --accent:#74B8B4; --accent-ink:#0D2422;
+      --accent-soft:#1E3634; --scam:#E38A73; --scam-soft:#3A2420; --safe:#8FCBA1;
+      --safe-soft:#1E332A;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#E7EBE7; --ink-soft:#9FB0AC; --paper:#101617; --surface:#182124;
+    --surface-2:#1E2A2C; --border:#2B3A3D; --accent:#74B8B4; --accent-ink:#0D2422;
+    --accent-soft:#1E3634; --scam:#E38A73; --scam-soft:#3A2420; --safe:#8FCBA1;
+    --safe-soft:#1E332A;
+  }
+  :root[data-theme="light"]{
+    --ink:#1B2420; --ink-soft:#55666B; --paper:#EEF1EE; --surface:#FFFFFF;
+    --surface-2:#F5F7F4; --border:#D8DED9; --accent:#2B6E71; --accent-ink:#FFFFFF;
+    --accent-soft:#DCEBEA; --scam:#B3432B; --scam-soft:#F6E4DF; --safe:#3F7D53;
+    --safe-soft:#E3EFE6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Segoe UI","Tahoma","Noto Naskh Arabic",Arial,sans-serif;
+    line-height:1.75; direction:rtl; min-height:100vh;
+    display:flex; justify-content:center; padding:28px 16px 56px;
+  }
+  #app{width:100%; max-width:640px;}
+  .eyebrow{
+    font-size:12.5px; color:var(--ink-soft); letter-spacing:.03em;
+    text-transform:none; margin:0 0 6px;
+  }
+  h1{font-size:22px; margin:0 0 4px; text-wrap:balance;}
+  h2{font-size:18px; margin:0 0 10px; text-wrap:balance;}
+  p{margin:0 0 12px; color:var(--ink);}
+  .muted{color:var(--ink-soft); font-size:14px;}
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:22px 22px 20px; margin-bottom:16px;
+  }
+  .progress-wrap{display:flex; align-items:center; gap:10px; margin-bottom:18px;}
+  .progress-track{flex:1; height:6px; background:var(--surface-2); border-radius:99px; overflow:hidden; border:1px solid var(--border);}
+  .progress-fill{height:100%; background:var(--accent); transition:width .25s ease;}
+  .progress-label{font-size:12.5px; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
+
+  .msg-bubble{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:16px 16px 16px 4px;
+    padding:16px 18px; font-size:15.5px; white-space:pre-line; margin-bottom:18px;
+  }
+  .assistant-card{
+    border:1px solid var(--accent); background:var(--accent-soft); border-radius:16px 16px 4px 16px;
+    padding:16px 18px; margin-bottom:18px;
+  }
+  .assistant-label{font-size:12.5px; color:var(--accent); font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
+  .verdict-badge{
+    display:inline-block; padding:4px 12px; border-radius:99px; font-size:13.5px; font-weight:700;
+  }
+  .verdict-badge.scam{background:var(--scam-soft); color:var(--scam);}
+  .verdict-badge.safe{background:var(--safe-soft); color:var(--safe);}
+  .assistant-explanation{font-size:14.5px; margin-top:10px; color:var(--ink);}
+
+  .field{margin-bottom:18px;}
+  .field label{display:block; font-size:14px; font-weight:600; margin-bottom:8px;}
+  input[type=text], select{
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
+    background:var(--surface); color:var(--ink); font-size:14.5px; font-family:inherit;
+  }
+  .choice-row{display:flex; gap:10px;}
+  .choice-btn{
+    flex:1; padding:14px 10px; border-radius:12px; border:1.5px solid var(--border);
+    background:var(--surface); color:var(--ink); font-size:15px; font-weight:600; cursor:pointer;
+    font-family:inherit; transition:.15s;
+  }
+  .choice-btn:hover{border-color:var(--accent);}
+  .choice-btn.selected.scam{border-color:var(--scam); background:var(--scam-soft); color:var(--scam);}
+  .choice-btn.selected.safe{border-color:var(--safe); background:var(--safe-soft); color:var(--safe);}
+  .scale-row{display:flex; gap:8px; margin-top:8px;}
+  .scale-btn{
+    flex:1; padding:10px 0; border-radius:10px; border:1.5px solid var(--border); background:var(--surface);
+    color:var(--ink); font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;
+    font-variant-numeric:tabular-nums; transition:.15s;
+  }
+  .scale-btn:hover{border-color:var(--accent);}
+  .scale-btn.selected{border-color:var(--accent); background:var(--accent); color:var(--accent-ink);}
+  .scale-caption{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-soft); margin-top:6px;}
+
+  .btn-primary{
+    display:inline-block; width:100%; padding:13px 18px; border-radius:11px; border:none;
+    background:var(--accent); color:var(--accent-ink); font-size:15.5px; font-weight:700;
+    cursor:pointer; font-family:inherit; margin-top:6px;
+  }
+  .btn-primary:disabled{opacity:.4; cursor:not-allowed;}
+  .btn-secondary{
+    display:inline-block; padding:10px 16px; border-radius:10px; border:1.5px solid var(--border);
+    background:transparent; color:var(--ink); font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;
+  }
+  .checkbox-row{display:flex; align-items:flex-start; gap:10px; margin-bottom:16px;}
+  .checkbox-row input{margin-top:4px;}
+  .checkbox-row label{font-size:14px; color:var(--ink); cursor:pointer;}
+  ol.steps{padding-inline-start:20px; margin:0 0 8px;}
+  ol.steps li{margin-bottom:10px; font-size:14.5px;}
+  textarea.dump{
+    width:100%; min-height:140px; font-family:Consolas,monospace; font-size:12px;
+    border:1px solid var(--border); border-radius:10px; padding:10px; background:var(--surface-2); color:var(--ink);
+  }
+  .status-line{font-size:13.5px; margin-top:10px; color:var(--ink-soft);}
+  .row-gap{display:flex; gap:10px; flex-wrap:wrap;}
+  .badge-count{font-size:12.5px; color:var(--ink-soft); margin-top:4px;}
+  hr.sep{border:none; border-top:1px solid var(--border); margin:16px 0;}
+</style>
+
+<div id="app"></div>
+
+<script>
+(function(){
+
+  // ---------- Stimuli (Condition-C, quality-matched correct/wrong explanations) ----------
+  var STIMULI = [
+    {id:"aslc_CONV_0003", veracity:"scam", source:"call", dialect:"خليجي",
+     text:`المتصل: مبروك أخوي! طلع اسمك بالسحب الكبير حق شركة زين وربحت مئة ألف دينار!
+المستقبل: والله؟ بس أنا ما دخلت أي سحب!
+المتصل: السحب أوتوماتيكي لكل المشتركين. عشان تستلم الجايزة لازم تحول ألفين دينار رسوم تحويل على الحساب اللي بقولك عليه.
+المستقبل: ليش أدفع عشان أستلم جايزة؟ هذا مب منطقي.
+المتصل: أخوي هذي رسوم البنك المركزي مب من عندنا. ألفين دينار مقابل مئة ألف! العرض ينتهي بكرة. لو ما حولت اليوم الجايزة بتروح لشخص ثاني.`,
+     correct:{verdict:"scam", explanation:"المتصل يزعم فوز المستقبل بمئة ألف دينار من شركة زين رغم أنه لم يشارك في أي سحب، ثم يطلب تحويل ألفي دينار «رسوم» مقدماً لاستلام الجائزة. الجمع بين جائزة وهمية ودفع رسوم مسبقة والضغط بانتهاء العرض من أوضح علامات النصب."},
+     wrong:{verdict:"safe", explanation:"هذه مكالمة تهنئة ضمن السحوبات الدورية التي تجريها شركة زين تلقائياً لمشتركيها، ورسوم التحويل المذكورة عمولة بنكية قياسية على المبالغ الكبيرة لا تشكّل خطراً. المكالمة لا تطلب رقماً سرياً أو بيانات بطاقة، فالتعامل معها آمن عبر قنوات الشركة الرسمية المعتمدة."}},
+
+    {id:"aslc_CONV_0005", veracity:"scam", source:"call", dialect:"مصري",
+     text:`المتصل: مبروك يا فندم! كسبت مليون جنيه في مسابقة شركة فودافون الكبرى! إنت الفايز الوحيد من محافظتك!
+المستقبل: مليون جنيه؟! أنا مشتركتش في أي مسابقة أصلاً!
+المتصل: المسابقة بتتعمل أوتوماتيك لكل المشتركين. عشان تقبض الجايزة محتاج تحول ثلاث تلاف جنيه رسوم إدارية على الرقم ده.
+المستقبل: ليه أدفع فلوس عشان أقبض فلوس؟ ده كلام مش معقول!
+المتصل: يا بيه دي رسوم حكومية مش في إيدينا. ثلاث تلاف مقابل مليون! الجايزة هتنتهي بعد ساعتين لو مدفعتش. حول بسرعة على فوري أو فودافون كاش.`,
+     correct:{verdict:"scam", explanation:"ادعاء فوز بمليون جنيه في مسابقة فودافون دون اشتراك، مع مطالبة بدفع ثلاثة آلاف جنيه «رسوم إدارية» مقدماً عبر محفظة إلكترونية. جائزة وهمية ورسوم مسبقة وضغط زمني بانتهاء الجائزة نمط احتيالي كلاسيكي."},
+     wrong:{verdict:"safe", explanation:"هذه مكالمة من مسابقة فودافون التي تُجرى تلقائياً لجميع المشتركين، والرسوم الإدارية إجراء روتيني على الجوائز يُدفع عبر محفظة فودافون كاش. لا تطلب رقمك السري أو بيانات بطاقتك، فهي عرض مشروع آمن."}},
+
+    {id:"aslc_CONV_0006", veracity:"scam", source:"call", dialect:"فصحى",
+     text:`المتصل: السلام عليكم، أنا من شركة الاتصالات. نحتاج تحديث بيانات شريحتك وإلا سيتم إيقافها.
+المستقبل: تحديث بيانات؟ ما المطلوب؟
+المتصل: سنرسل لك رمز تحقق. أحتاج أن تقرأه لي لإتمام التحديث في النظام.
+المستقبل: لكن هذا رمز خاص بي!
+المتصل: نحن شركة الاتصالات ونحتاج الرمز لتحديث النظام. إذا لم تعطنا الرمز ستتوقف الشريحة خلال ساعة. الأمر بسيط جداً.`,
+     correct:{verdict:"scam", explanation:"المتصل ينتحل صفة شركة الاتصالات ويطلب من المستقبل قراءة رمز التحقق الذي سيصله بحجة «تحديث البيانات» مع التهديد بإيقاف الشريحة. مشاركة رمز التحقق تمكّن المحتال من اختطاف الحساب، وطلبه هاتفياً مع التهديد علامة نصب مؤكدة."},
+     wrong:{verdict:"safe", explanation:"هذه مكالمة فنية من مركز خدمة الاتصالات لتحديث بيانات الشريحة، وهو إجراء دوري تقوم به الشركات لضمان استمرار الخدمة للمشترك. رمز التحقق يُستخدم لمطابقة هويتك في نظام التحديث فقط، فإكمال العملية مع ممثل الشركة تصرّف آمن."}},
+
+    {id:"aslc_CONV_0008", veracity:"scam", source:"call", dialect:"خليجي",
+     text:`المتصل: هلا أخوي، أنا صاحب أبو فهد وهو بالمستشفى ومحتاج فلوس عملية.
+المستقبل: صاحب أبو فهد؟ شنو اسمك؟
+المتصل: أنا سعد. أبو فهد بحالة حرجة ومحتاج خمسة وعشرين ألف ريال.
+المستقبل: خلني أتصل على أبو فهد.
+المتصل: جواله مقفول وهو بالعناية المركزة. حوّل المبلغ الحين واتصل عليه بعدين.`,
+     correct:{verdict:"scam", explanation:"شخص مجهول يزعم أن «أبو فهد» في المستشفى ويطلب تحويل خمسة وعشرين ألف ريال فوراً، ويتهرّب من التحقق بادعاء أن هاتف المريض مغلق. الإلحاح على التحويل الفوري مع منع التأكد من القصة نمط احتيال الطوارئ العائلية."},
+     wrong:{verdict:"safe", explanation:"هذا اتصال من صديق مقرّب لأبو فهد يبلّغ عن حالة طارئة تستدعي السرعة لتقديم المساعدة المالية. كون هاتف المريض مغلقاً أمر طبيعي في أقسام العناية المركزة، فمساعدة الصديق في ظرف إنساني تصرّف نبيل بلا مؤشرات احتيال."}},
+
+    {id:"aslc_CONV_0010", veracity:"scam", source:"call", dialect:"مصري",
+     text:`المتصل: ألو يا باشا، معاك أحمد من شركة كريبتو إنفست. عندنا فرصة ذهبية في البيتكوين هتخليك مليونير في شهرين.
+المستقبل: مليونير في شهرين؟ ده كلام مبالغ فيه شوية.
+المتصل: لا والله يا بيه، عندنا نظام ذكاء اصطناعي بيتداول أوتوماتيك وبيكسب كل يوم. كل اللي عليك تحط عشر تلاف جنيه وتقعد تتفرج.
+المستقبل: ومين ضامنلي فلوسي؟
+المتصل: يا بيه أنا بضمنلك شخصياً. عندنا آلاف العملاء اللي كسبوا ملايين. هبعتلك لينك التسجيل دلوقتي. الفرصة دي مش هتتكرر تاني والأماكن خلصت تقريباً.`,
+     correct:{verdict:"scam", explanation:"عرض «فرصة ذهبية» في البيتكوين يَعِد بتحويل المستقبل إلى مليونير خلال شهرين عبر نظام تداول آلي مقابل إيداع عشرة آلاف جنيه فوراً. الوعود بأرباح خيالية مضمونة والضمان الشخصي والضغط بندرة الأماكن من سمات احتيال الاستثمار."},
+     wrong:{verdict:"safe", explanation:"هذا عرض استثماري من شركة متخصصة في تداول العملات الرقمية عبر أنظمة ذكاء اصطناعي، وهو مجال مشروع منتشر عالمياً. وجود عملاء رابحين وضمان المسؤول الشخصي مؤشران على جدّية العرض، والمبلغ المطلوب استثمار اختياري صغير مقابل ربح واعد."}},
+
+    {id:"aslc_CONV_0012", veracity:"scam", source:"call", dialect:"مصري",
+     text:`المتصل: ألو، أنا من شركة شحن. عندك شحنة وصلت بس عليها جمارك لازم تنحل.
+المستقبل: شحنة؟ أنا ما طلبت حاجة!
+المتصل: ممكن حد بعتلك هدية. الجمارك عاوزة تلت تلاف جنيه. حول على الرقم ده وهنوصلك الشحنة بكرة.
+المستقبل: تلت تلاف جنيه وأنا مش عارف إيه الشحنة؟!
+المتصل: يا فندم الشحنة فيها حاجات غالية. لو مدفعتش النهاردة بترجع تاني وبتخسرها. المبلغ بسيط يعني.`,
+     correct:{verdict:"scam", explanation:"المتصل يزعم وجود شحنة لم يطلبها المستقبل وعليها «جمارك» بثلاثة آلاف جنيه يجب تحويلها لرقم معيّن قبل التسليم. طلب رسوم جمركية مسبقة على شحنة مجهولة مع الضغط بالوقت أسلوب احتيال شائع."},
+     wrong:{verdict:"safe", explanation:"هذه مكالمة من شركة شحن تبلّغك بوصول طرد أرسله أحد معارفك هدية دون علمك، والرسوم الجمركية إجراء رسمي معتاد على الطرود الواردة. تحصيلها قبل التسليم أمر طبيعي، فتسوية مبلغ بسيط لاستلام طردك تصرّف آمن."}},
+
+    {id:"github_spam_12", veracity:"scam", source:"smishing", dialect:"",
+     text:"عزیزي العمیل الصراف الآلي الخاص بك محظور فا تصل ھذا الرقم ٠٥٣١٣٦٩١١٣",
+     correct:{verdict:"scam", explanation:"الرسالة تنتحل صفة جهة مصرفية وتزعم أن الصراف الآلي الخاص بك محظور، ثم تطلب الاتصال برقم جوال غير رسمي. تخويف الضحية بحظر البطاقة ودفعه للاتصال برقم مجهول للتحديث أسلوب تصيّد شائع للاستيلاء على بياناتك."},
+     wrong:{verdict:"safe", explanation:"هذه رسالة تنبيه خدمية من جهتك المصرفية تُعلمك بمشكلة مؤقتة في خدمة الصراف الآلي وتوفّر رقماً للتواصل وحلّها. تزويد العميل برقم للدعم إجراء بنكي معتاد، والرسالة لا تطلب رقماً سرياً أو بيانات بطاقة فهي آمنة."}},
+
+    {id:"tweet_10016", veracity:"scam", source:"tweet", dialect:"",
+     text:"احصل علي شهاده ايلتس معتمده وبدون اختبار سيرة ذاتية وظائف الرياض وزارة التعليم وظيفة عن بعد وظيفة وظائف الشرقية وظائف جدة وظائف القصيم العمل المرن العمل عن بعد تصويري سناب منصة مدرستي وظائف المدينه وظائف عن بعد الابتعاث",
+     correct:{verdict:"scam", explanation:"يروّج المنشور للحصول على شهادة آيلتس معتمدة دون اجتياز الاختبار، وهو عرض احتيالي لبيع شهادات مزوّرة يستغل الباحثين عن الوظائف والدراسة عن بُعد. مثل هذه الإعلانات تدفع الضحية إلى التواصل ودفع رسوم مقابل وثيقة مزيفة، وهي علامة واضحة على النصب."},
+     wrong:{verdict:"safe", explanation:"هذا منشور توظيفي يجمع وسوم الوظائف والدراسة عن بُعد ويعرض خدمة تدريبية معتمدة للحصول على شهادة الآيلتس، وهو محتوى إرشادي مفيد لطالبي العمل. تجميع الفرص والدورات في منشور واحد ممارسة تسويقية اعتيادية، ولا يتضمن أي طلب مالي أو رابط مشبوه."}},
+
+    {id:"aslc_CONV_0001", veracity:"safe", source:"call", dialect:"مصري",
+     text:`المتصل: ألو يا فندم، معاك من مصلحة الأحوال المدنية. شهادة الميلاد اللي طلبتها جاهزة.
+المستقبل: تمام. أروح فين أستلمها؟
+المتصل: نفس المكتب. خد معاك الإيصال والبطاقة.
+المستقبل: ممكن حد غيري يستلمها؟
+المتصل: آه بتوكيل موثق.`,
+     correct:{verdict:"safe", explanation:"مكالمة روتينية من مصلحة الأحوال المدنية لإبلاغ المستقبل بجاهزية شهادة الميلاد التي طلبها بنفسه، وتوجيهه لاستلامها من المكتب مع الإيصال والبطاقة. لا يوجد أي طلب لتحويل أموال أو بيانات حساسة عبر الهاتف، والإجراء حضوري رسمي."},
+     wrong:{verdict:"scam", explanation:"يزعم المتصل أنه من مصلحة الأحوال المدنية، لكن الاتصال المباشر بشأن «شهادة جاهزة» أسلوب انتحال شائع للجهات الرسمية. طلبه إحضار الإيصال والبطاقة تمهيد لسرقة بياناتك عند حضورك لمكان يحدّده، والجهات الحكومية لا تتصل بهذا الشكل فالمكالمة احتيالية."}},
+
+    {id:"aslc_CONV_0002", veracity:"safe", source:"call", dialect:"أردني",
+     text:`المتصل: مرحبا أخوي، أنا من أرامكس. عندك طرد ووصلت على العنوان.
+المستقبل: أنا بالشغل هلق. ممكن تتركه عند الجيران؟
+المتصل: إي بقدر بس لازم حدا يوقع على الاستلام.
+المستقبل: تمام خلي جاري أبو عمر يوقع. شقة تسعة.
+المتصل: ماشي، رح أسلمه لجارك.`,
+     correct:{verdict:"safe", explanation:"مندوب من أرامكس يبلّغ باستلام طرد ويطلب توقيعاً على الاستلام فقط، مع قبول تسليمه لجار موثوق. لا طلب لأي رسوم مسبقة أو معلومات بنكية، وهو تنسيق تسليم اعتيادي."},
+     wrong:{verdict:"scam", explanation:"يدّعي المتصل أنه من أرامكس، لكن طلبه ترك الطرد عند الجيران وتوقيعاً نيابةً أسلوب يُستغل لتسليم طرود مشبوهة. المحتالون ينتحلون صفة شركات الشحن لكسب الثقة، وجهالة المرسِل تجعل الاتصال احتيالياً."}},
+
+    {id:"aslc_CONV_0004", veracity:"safe", source:"call", dialect:"فصحى",
+     text:`المتصل: السلام عليكم، أنا من خدمة عملاء البنك الأهلي. نتواصل معكم بخصوص طلب القرض الذي تقدمتم به الأسبوع الماضي.
+المستقبل: نعم، تقدمت بطلب قرض فعلاً. ما آخر المستجدات؟
+المتصل: تمت الموافقة المبدئية على طلبكم. نحتاج فقط أن تزوروا الفرع الأقرب لتوقيع العقد وإتمام الإجراءات.
+المستقبل: ممتاز! متى يمكنني زيارة الفرع؟
+المتصل: في أي وقت خلال أوقات الدوام الرسمية من الأحد إلى الخميس. أحضر هويتك الوطنية وكشف حساب لآخر ثلاثة أشهر.`,
+     correct:{verdict:"safe", explanation:"مكالمة متابعة من خدمة عملاء البنك بخصوص طلب قرض تقدّم به المستقبل فعلاً، وتوجيهه لزيارة الفرع لتوقيع العقد وإحضار الهوية وكشف الحساب. لا يُطلب أي رقم بطاقة أو رمز عبر الهاتف، والإجراءات رسمية وحضورية."},
+     wrong:{verdict:"scam", explanation:"يقول المتصل إنه من البنك الأهلي، لكن الاتصال المفاجئ بشأن «موافقة على قرض» من أشهر حيل انتحال صفة البنوك. طلب إحضار الهوية وكشف حساب لآخر ثلاثة أشهر يُستغل لجمع بياناتك المالية، فالبنوك الحقيقية لا تبادر بهذه المكالمات."}},
+
+    {id:"aslc_CONV_0007", veracity:"safe", source:"call", dialect:"مصري",
+     text:`المتصل: ألو يا فندم، معاك من السجل المدني. البطاقة الشخصية الجديدة جاهزة.
+المستقبل: تمام هروح أستلمها. فين المكتب؟
+المتصل: نفس المكتب اللي قدمت فيه. خد معاك الإيصال والبطاقة القديمة.
+المستقبل: تمام شكراً.
+المتصل: العفو. المكتب شغال من تسعة لتلاتة.`,
+     correct:{verdict:"safe", explanation:"اتصال من السجل المدني لإبلاغ المستقبل بجاهزية بطاقته الشخصية الجديدة وتوجيهه للاستلام من المكتب نفسه مع الإيصال والبطاقة القديمة. لا طلب مالي أو بيانات سرية، والإجراء حضوري رسمي ضمن أوقات العمل."},
+     wrong:{verdict:"scam", explanation:"يدّعي المتصل أنه من السجل المدني، لكن الاتصال للإبلاغ عن «بطاقة جاهزة» أسلوب انتحال متكرر لجهات حكومية. الطلب بإحضار البطاقة القديمة والإيصال فخّ للاستيلاء على وثائقك، والدوائر الرسمية لا تتصل بهذا الأسلوب فالمكالمة مشبوهة."}},
+
+    {id:"aslc_CONV_0009", veracity:"safe", source:"call", dialect:"فصحى",
+     text:`المتصل: مرحباً، أنا فني الصيانة من شركة التكييف. موعدنا اليوم الساعة الثانية لصيانة جهازكم.
+المستقبل: نعم أنتظركم. هل تحتاجون شيئاً معيناً؟
+المتصل: لا شكراً. فقط تأكد من إطفاء الجهاز قبل وصولنا بنصف ساعة.
+المستقبل: تمام سأطفئه.
+المتصل: ممتاز. سأكون عندكم في الموعد المحدد إن شاء الله.`,
+     correct:{verdict:"safe", explanation:"فني صيانة يؤكد موعداً لصيانة جهاز التكييف ويطلب فقط إطفاء الجهاز قبل الوصول. لا يطلب أي مبالغ مقدماً أو بيانات شخصية، وهو تنسيق خدمة اعتيادي."},
+     wrong:{verdict:"scam", explanation:"يقدّم المتصل نفسه كفني صيانة، لكن طلبه إطفاء الجهاز قبل وصوله بنصف ساعة أسلوب مريب للتأكد من خلوّ المنزل. المحتالون ينتحلون صفة الفنيين للوصول إلى المنازل، فالمكالمة احتيالية."}},
+
+    {id:"aslc_CONV_0011", veracity:"safe", source:"call", dialect:"فصحى",
+     text:`المتصل: مرحباً، معك من مطعم الشرق. طلبك جاهز وسنرسله خلال عشرين دقيقة.
+المستقبل: ممتاز شكراً. هل الطلب مكتمل؟
+المتصل: نعم. وجبتان شاورما مع مشروبات. المبلغ خمسة وأربعون ريالاً الدفع عند الاستلام.
+المستقبل: تمام. هل تقبلون الدفع بالبطاقة؟
+المتصل: نعم المندوب معه جهاز دفع إلكتروني. شكراً لطلبك.`,
+     correct:{verdict:"safe", explanation:"مطعم يؤكد جاهزية الطلب وموعد التوصيل والمبلغ مع الدفع عند الاستلام، ويقبل الدفع بالبطاقة عبر جهاز المندوب. لا طلب لبيانات بنكية أو تحويل مسبق، وهي مكالمة توصيل عادية."},
+     wrong:{verdict:"scam", explanation:"يزعم المتصل أنه من مطعم الشرق، لكن تأكيد «طلب» لم تتحقق منه مع ذكر مبلغ محاولة لإيهامك بطلب وهمي. المحتالون ينتحلون صفة المطاعم لتحصيل مبالغ عن طلبات غير حقيقية، فالمكالمة احتيالية."}},
+
+    {id:"github_nonspam_1", veracity:"safe", source:"smishing", dialect:"",
+     text:"لا تفوتها! احصل على 250 دقيقة محلية من موبايلي لجميع الشبكات صالحة لمدة شهر كامل مقابل 25 ريال فقط. للإشتراك بالباقة أو لتجديد اشتراكك في حال انتهاء رصيد الدقائق المجانية لديك, ارسل 8250 الى 1100! الإشتراك يتجدد تلقائيا نهاية المدة, اذا كنت ترغب في الغاء اشتراكك بالعرض, فضلا ارسل 8251 إلى 1100.",
+     correct:{verdict:"safe", explanation:"الرسالة عرض ترويجي من موبايلي لباقة دقائق محلية بسعر محدد مع تعليمات اشتراك وإلغاء عبر أرقام قصيرة رسمية للمشغّل. لا تطلب أي بيانات بنكية أو رموز سرية أو تحويل لجهة مجهولة، وهي رسالة تسويقية اعتيادية تبدو مشروعة."},
+     wrong:{verdict:"scam", explanation:"تبدو الرسالة عرضاً من موبايلي، لكن مطالبتك بإرسال رموز إلى أرقام قصيرة أسلوب يُستغل لتفعيل خدمات مدفوعة دون علمك واستنزاف رصيدك. التجديد التلقائي المذكور فخّ شائع لخصم المبالغ بشكل متكرر، ومثل هذه العروض المرسلة دون طلبك تحمل مؤشرات احتيال."}},
+
+    {id:"tweet_1", veracity:"safe", source:"tweet", dialect:"",
+     text:"سي إن إن: تستعد إدارة الرئيس بايدن لفرض عقوبات على روسيا على خلفية تسميم المعارض لكرملين أليكسي نافالني وسجنه - العربية",
+     correct:{verdict:"safe", explanation:"يبدو هذا المنشور خبرا إخباريا اعتياديا منسوبا إلى قناة معروفة (العربية) يتناول استعداد إدارة بايدن لفرض عقوبات على روسيا. لا يتضمن أي طلب لبيانات شخصية أو مالية ولا روابط مشبوهة أو إغراءات، وهو محتوى صحفي طبيعي لا يحمل مؤشرات احتيالية."},
+     wrong:{verdict:"scam", explanation:"يتظاهر المنشور بأنه خبر منسوب لقناة معروفة، لكن استغلال أسماء الشبكات الإخبارية الكبرى أسلوب شائع لنشر معلومات مضللة وجذب النقرات نحو محتوى خبيث. صياغة الخبر المثيرة حول تسميم معارض طُعم لاستدراج التفاعل، ونسب الأخبار دون مصدر موثّق يكشف أنه منشور احتيالي."}}
+  ];
+
+  // ---------- State ----------
+  var state = {
+    screen:"consent",
+    participantId:"",
+    group:null,
+    demo:{age:"", familiarity:null, dialect:""},
+    session:[], // 16 {stim, aiCorrect}
+    idx:0,
+    stage:1,
+    curDecision:null, curConfidence:null,
+    initDecision:null, initConfidence:null, t1start:0, t1end:0, t2reveal:0,
+    records:[],
+    consentChecked:false
+  };
+
+  function readCounts(){
+    try{ return JSON.parse(localStorage.getItem("pilotGroupCounts")||'{"A":0,"B":0}'); }
+    catch(e){ return {A:0,B:0}; }
+  }
+  function bumpCount(g){
+    var c = readCounts(); c[g] = (c[g]||0)+1;
+    try{ localStorage.setItem("pilotGroupCounts", JSON.stringify(c)); }catch(e){}
+  }
+  function suggestGroup(){
+    var c = readCounts();
+    return (c.A <= c.B) ? "A" : "B";
+  }
+
+  function downloadJSON(filename, dataStr){
+    var blob = new Blob([dataStr], {type:"application/json"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function sendEmailData(jsonStr, participantId, group){
+    var payload = {
+      _subject: "بيانات مشارك " + (participantId||"unknown") + " - مجموعة " + group,
+      _cc: "a.jdaitawi@ju.edu.jo",
+      _captcha: "false",
+      _template: "box",
+      participant_id: participantId,
+      group: group,
+      trials_json: jsonStr
+    };
+    return fetch("https://formsubmit.co/ajax/e.abuzaid@ju.edu.jo", {
+      method: "POST",
+      headers: {"Content-Type":"application/json","Accept":"application/json"},
+      body: JSON.stringify(payload)
+    }).then(function(res){
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    });
+  }
+
+  function shuffle(arr){
+    var a = arr.slice();
+    for(var i=a.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var t=a[i]; a[i]=a[j]; a[j]=t;
+    }
+    return a;
+  }
+
+  function buildSession(){
+    var scam = shuffle(STIMULI.filter(function(s){return s.veracity==="scam";}));
+    var safe = shuffle(STIMULI.filter(function(s){return s.veracity==="safe";}));
+    var trials = [];
+    scam.forEach(function(s,i){ trials.push({stim:s, aiCorrect: i<4}); });
+    safe.forEach(function(s,i){ trials.push({stim:s, aiCorrect: i<4}); });
+    return shuffle(trials);
+  }
+
+  // ---------- Rendering ----------
+  var app = document.getElementById("app");
+
+  function el(html){
+    var d = document.createElement("div");
+    d.innerHTML = html;
+    return d.firstElementChild;
+  }
+
+  function render(){
+    app.innerHTML = "";
+    if(state.screen==="consent") app.appendChild(renderConsent());
+    else if(state.screen==="demographics") app.appendChild(renderDemographics());
+    else if(state.screen==="instructions") app.appendChild(renderInstructions());
+    else if(state.screen==="trial") app.appendChild(renderTrial());
+    else if(state.screen==="debrief") app.appendChild(renderDebrief());
+  }
+
+  function renderConsent(){
+    var counts = readCounts();
+    var suggested = suggestGroup();
+    if(state.group===null) state.group = suggested;
+    var wrap = el('<div></div>');
+    wrap.innerHTML = `
+      <p class="eyebrow">دراسة سلوكية &mdash; المرحلة التجريبية (Pilot)</p>
+      <h1>الاعتماد على تفسيرات المساعد الذكي عند كشف رسائل الاحتيال</h1>
+      <div class="card">
+        <h2>عن الدراسة</h2>
+        <p>هذه دراسة أكاديمية تبحث كيف يتعامل الأشخاص مع رسائل قد تكون احتيالية عندما يساعدهم مساعد ذكي في التقييم. ستشاهد 16 رسالة قصيرة، وتُبدي رأيك فيها على مرحلتين لكل رسالة.</p>
+        <p class="muted">قد يخطئ المساعد الذكي المستخدم في هذه التجربة أحياناً، تماماً كما تفعل أي أداة ذكاء اصطناعي حقيقية. هذا جزء طبيعي من التجربة.</p>
+        <p class="muted">المشاركة طوعية بالكامل، ويمكنك التوقف في أي وقت دون أي التزام. البيانات تُجمع بدون اسمك الحقيقي وتُستخدم لأغراض بحثية أكاديمية فقط (رسالة/ورقة مؤتمر). المدة التقريبية: 12&ndash;15 دقيقة.</p>
+        <div class="checkbox-row">
+          <input type="checkbox" id="consentCk" ${state.consentChecked?'checked':''}/>
+          <label for="consentCk">أوافق طواعيةً على المشاركة، وأؤكد أن عمري 18 سنة فأكثر.</label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>بيانات الجلسة (يعبّئها الباحث)</h2>
+        <div class="field">
+          <label for="pid">رمز المشارك (Participant ID)</label>
+          <input type="text" id="pid" placeholder="مثال: P01" value="${state.participantId}"/>
+        </div>
+        <div class="field">
+          <label>المجموعة</label>
+          <div class="row-gap">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:14px;">
+              <input type="radio" name="grp" value="A" ${state.group==='A'?'checked':''}/> أ &mdash; حكم المساعد فقط
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:14px;">
+              <input type="radio" name="grp" value="B" ${state.group==='B'?'checked':''}/> ب &mdash; حكم المساعد + تفسير
+            </label>
+          </div>
+          <p class="badge-count">التوزيع الحالي على هذا الجهاز: أ = ${counts.A||0} | ب = ${counts.B||0} (المقترح: ${suggested==='A'?'أ':'ب'})</p>
+        </div>
+        <hr class="sep"/>
+        <p class="muted">ملاحظة إعداد لمرة واحدة: بيانات كل جلسة تُرسل تلقائياً بالبريد إلى e.abuzaid@ju.edu.jo (مع نسخة إلى a.jdaitawi@ju.edu.jo). أول مرة تشتغل الأداة، خدمة الإرسال (FormSubmit) بترسل بريد "تأكيد" لكل عنوان — لازم تفتحوا هالبريد وتضغطوا رابط التفعيل قبل ما توصل بيانات المشاركين الفعليين. جرّبوا جلسة وهمية أول مرة وتأكدوا إنه البريد وصل.</p>
+      </div>
+      <button class="btn-primary" id="startBtn" ${(!state.consentChecked || !state.participantId)?'disabled':''}>متابعة إلى بيانات المشارك</button>
+    `;
+    wrap.querySelector("#consentCk").addEventListener("change", function(e){
+      state.consentChecked = e.target.checked; render();
+    });
+    wrap.querySelector("#pid").addEventListener("input", function(e){
+      state.participantId = e.target.value;
+      wrap.querySelector("#startBtn").disabled = !(state.consentChecked && state.participantId);
+    });
+    wrap.querySelectorAll('input[name=grp]').forEach(function(r){
+      r.addEventListener("change", function(e){ state.group = e.target.value; });
+    });
+    wrap.querySelector("#startBtn").addEventListener("click", function(){
+      if(!state.consentChecked || !state.participantId) return;
+      state.screen = "demographics"; render();
+    });
+    return wrap;
+  }
+
+  function renderDemographics(){
+    var wrap = el('<div></div>');
+    var famSel = state.demo.familiarity;
+    var famBtns = [1,2,3,4,5].map(function(n){
+      return `<button type="button" class="scale-btn ${famSel===n?'selected':''}" data-fam="${n}">${n}</button>`;
+    }).join("");
+    wrap.innerHTML = `
+      <p class="eyebrow">قبل البدء</p>
+      <h1>بيانات أولية</h1>
+      <div class="card">
+        <div class="field">
+          <label for="age">الفئة العمرية</label>
+          <select id="age">
+            <option value="">اختر...</option>
+            <option value="18-24" ${state.demo.age==='18-24'?'selected':''}>18-24</option>
+            <option value="25-34" ${state.demo.age==='25-34'?'selected':''}>25-34</option>
+            <option value="35-44" ${state.demo.age==='35-44'?'selected':''}>35-44</option>
+            <option value="45-54" ${state.demo.age==='45-54'?'selected':''}>45-54</option>
+            <option value="55+" ${state.demo.age==='55+'?'selected':''}>55+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>ما مدى معرفتك برسائل النصب عبر واتساب/المكالمات؟ (1 = لا أعرف شيئاً، 5 = خبرة كبيرة)</label>
+          <div class="scale-row" id="famRow">${famBtns}</div>
+        </div>
+        <div class="field">
+          <label for="dialect">لهجتك (اختياري)</label>
+          <input type="text" id="dialect" placeholder="مثال: أردنية" value="${state.demo.dialect}"/>
+        </div>
+      </div>
+      <button class="btn-primary" id="next" ${(!state.demo.age || !state.demo.familiarity)?'disabled':''}>متابعة إلى شرح التجربة</button>
+    `;
+    wrap.querySelector("#age").addEventListener("change", function(e){
+      state.demo.age = e.target.value;
+      wrap.querySelector("#next").disabled = !(state.demo.age && state.demo.familiarity);
+    });
+    wrap.querySelector("#dialect").addEventListener("input", function(e){ state.demo.dialect = e.target.value; });
+    wrap.querySelectorAll("[data-fam]").forEach(function(b){
+      b.addEventListener("click", function(){
+        state.demo.familiarity = parseInt(b.getAttribute("data-fam"),10);
+        render();
+      });
+    });
+    wrap.querySelector("#next").addEventListener("click", function(){
+      if(!state.demo.age || !state.demo.familiarity) return;
+      state.screen = "instructions"; render();
+    });
+    return wrap;
+  }
+
+  function renderInstructions(){
+    var wrap = el('<div></div>');
+    wrap.innerHTML = `
+      <p class="eyebrow">شرح التجربة</p>
+      <h1>كيف تسير كل رسالة</h1>
+      <div class="card">
+        <ol class="steps">
+          <li><strong>تقرأ الرسالة</strong> وتُبدي رأيك: هل هي "احتيال" أم "آمنة"؟ ثم تحدد مدى ثقتك بقرارك (1&ndash;5).</li>
+          <li><strong>يظهر لك تقييم المساعد الذكي</strong> لنفس الرسالة.</li>
+          <li><strong>تُعطى قرارك النهائي</strong> بعد رؤية تقييم المساعد &mdash; قد يكون نفس رأيك الأول أو مختلفاً، ومرة أخرى تحدد ثقتك.</li>
+        </ol>
+        <p class="muted">لا توجد إجابات "صحيحة" متوقعة منك مسبقاً &mdash; المطلوب رأيك الحقيقي في كل مرحلة. عدد الرسائل: 16. لا حاجة للتفكير طويلاً؛ أجب بأول انطباع منطقي.</p>
+      </div>
+      <button class="btn-primary" id="beginBtn">ابدأ التجربة</button>
+    `;
+    wrap.querySelector("#beginBtn").addEventListener("click", function(){
+      state.session = buildSession();
+      state.idx = 0;
+      bumpCount(state.group);
+      startTrial();
+    });
+    return wrap;
+  }
+
+  function startTrial(){
+    state.stage = 1;
+    state.curDecision = null;
+    state.curConfidence = null;
+    state.t1start = Date.now();
+    state.screen = "trial";
+    render();
+  }
+
+  function renderTrial(){
+    var trialNum = state.idx+1;
+    var total = state.session.length;
+    var pct = Math.round(((state.idx) + (state.stage-1)*0.5) / total * 100);
+    var current = state.session[state.idx];
+    var stim = current.stim;
+
+    var wrap = el('<div></div>');
+    var top = `
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%;"></div></div>
+        <div class="progress-label">رسالة ${trialNum} من ${total} &middot; مرحلة ${state.stage} من 2</div>
+      </div>
+      <div class="msg-bubble">${stim.text}</div>
+    `;
+
+    if(state.stage===1){
+      wrap.innerHTML = top + `
+        <div class="card">
+          <p style="font-weight:600;margin-bottom:10px;">برأيك، هل هذه الرسالة احتيال أم آمنة؟</p>
+          <div class="choice-row">
+            <button type="button" class="choice-btn ${state.curDecision==='scam'?'selected scam':''}" data-d="scam">احتيال</button>
+            <button type="button" class="choice-btn ${state.curDecision==='safe'?'selected safe':''}" data-d="safe">آمنة</button>
+          </div>
+          <p style="font-weight:600;margin:16px 0 4px;">ما مدى ثقتك بهذا القرار؟</p>
+          <div class="scale-row">${[1,2,3,4,5].map(function(n){return `<button type="button" class="scale-btn ${state.curConfidence===n?'selected':''}" data-c="${n}">${n}</button>`;}).join("")}</div>
+          <div class="scale-caption"><span>غير واثق إطلاقاً</span><span>واثق جداً</span></div>
+          <button class="btn-primary" id="s1next" ${(!state.curDecision||!state.curConfidence)?'disabled':''}>متابعة</button>
+        </div>
+      `;
+      wrap.querySelectorAll("[data-d]").forEach(function(b){
+        b.addEventListener("click", function(){ state.curDecision = b.getAttribute("data-d"); render(); });
+      });
+      wrap.querySelectorAll("[data-c]").forEach(function(b){
+        b.addEventListener("click", function(){ state.curConfidence = parseInt(b.getAttribute("data-c"),10); render(); });
+      });
+      var nextBtn = wrap.querySelector("#s1next");
+      if(nextBtn) nextBtn.addEventListener("click", function(){
+        if(!state.curDecision || !state.curConfidence) return;
+        state.t1end = Date.now();
+        state.initDecision = state.curDecision;
+        state.initConfidence = state.curConfidence;
+        state.curDecision = null; state.curConfidence = null;
+        state.stage = 2;
+        state.t2reveal = Date.now();
+        render();
+      });
+    } else {
+      var aiOut = current.aiCorrect ? stim.correct : stim.wrong;
+      var showExplanation = state.group === "B";
+      wrap.innerHTML = top + `
+        <div class="assistant-card">
+          <div class="assistant-label">تقييم المساعد الذكي</div>
+          <span class="verdict-badge ${aiOut.verdict}">${aiOut.verdict==='scam' ? 'احتيال' : 'آمنة'}</span>
+          ${showExplanation ? `<div class="assistant-explanation">${aiOut.explanation}</div>` : ``}
+        </div>
+        <div class="card">
+          <p style="font-weight:600;margin-bottom:10px;">بعد رؤية تقييم المساعد، ما قرارك النهائي؟</p>
+          <div class="choice-row">
+            <button type="button" class="choice-btn ${state.curDecision==='scam'?'selected scam':''}" data-d="scam">احتيال</button>
+            <button type="button" class="choice-btn ${state.curDecision==='safe'?'selected safe':''}" data-d="safe">آمنة</button>
+          </div>
+          <p style="font-weight:600;margin:16px 0 4px;">ما مدى ثقتك بهذا القرار النهائي؟</p>
+          <div class="scale-row">${[1,2,3,4,5].map(function(n){return `<button type="button" class="scale-btn ${state.curConfidence===n?'selected':''}" data-c="${n}">${n}</button>`;}).join("")}</div>
+          <div class="scale-caption"><span>غير واثق إطلاقاً</span><span>واثق جداً</span></div>
+          <button class="btn-primary" id="s2next" ${(!state.curDecision||!state.curConfidence)?'disabled':''}>${state.idx+1<total?'الرسالة التالية':'إنهاء'}</button>
+        </div>
+      `;
+      wrap.querySelectorAll("[data-d]").forEach(function(b){
+        b.addEventListener("click", function(){ state.curDecision = b.getAttribute("data-d"); render(); });
+      });
+      wrap.querySelectorAll("[data-c]").forEach(function(b){
+        b.addEventListener("click", function(){ state.curConfidence = parseInt(b.getAttribute("data-c"),10); render(); });
+      });
+      var endBtn = wrap.querySelector("#s2next");
+      if(endBtn) endBtn.addEventListener("click", function(){
+        if(!state.curDecision || !state.curConfidence) return;
+        var t3 = Date.now();
+        state.records.push({
+          participant_id: state.participantId,
+          group: state.group,
+          age_range: state.demo.age,
+          familiarity: state.demo.familiarity,
+          dialect_self: state.demo.dialect,
+          order_position: state.idx+1,
+          item_id: stim.id,
+          message_veracity: stim.veracity,
+          message_source: stim.source,
+          ai_verdict: aiOut.verdict,
+          ai_correct: current.aiCorrect,
+          initial_decision: state.initDecision,
+          initial_confidence: state.initConfidence,
+          stage1_response_ms: state.t1end - state.t1start,
+          final_decision: state.curDecision,
+          final_confidence: state.curConfidence,
+          decision_time_ms: t3 - state.t2reveal,
+          switched_decision: state.initDecision !== state.curDecision
+        });
+        if(state.idx+1 < total){
+          state.idx += 1;
+          startTrial();
+        } else {
+          state.screen = "debrief"; render();
+        }
+      });
+    }
+    return wrap;
+  }
+
+  function renderDebrief(){
+    var wrap = el('<div></div>');
+    var json = JSON.stringify({
+      participant_id: state.participantId,
+      group: state.group,
+      demographics: state.demo,
+      trials: state.records
+    }, null, 2);
+    wrap.innerHTML = `
+      <p class="eyebrow">انتهت التجربة &mdash; شكراً لك</p>
+      <h1>توضيح الغرض من الدراسة</h1>
+      <div class="card">
+        <p>شكراً لمشاركتك. نوضح الآن هدف الدراسة بالكامل: بعض تقييمات المساعد الذكي التي شاهدتها كانت <strong>خاطئة عمداً</strong>، بهدف قياس مدى اعتماد الأشخاص على توصيات الذكاء الاصطناعي حتى عندما تكون غير صحيحة، خصوصاً عند وجود تفسير مصاحب للتقييم.</p>
+        <p class="muted">بياناتك محفوظة برمز المشارك فقط دون أي معلومة تعرّف هويتك، وستُستخدم في تحليل إحصائي مجمّع ضمن بحث أكاديمي. إن كانت لديك أي أسئلة أو رغبت بسحب بياناتك، تواصل مع الباحثة عبر [بريد الباحثة].</p>
+      </div>
+      <div class="card">
+        <h2>إرسال بيانات هذه الجلسة</h2>
+        <p class="status-line" id="emailStatus">جاري إرسال البيانات بالبريد...</p>
+        <button class="btn-secondary" id="retryEmail" style="display:none;">إعادة محاولة الإرسال</button>
+        <hr class="sep"/>
+        <p class="muted">نسخة احتياطية على الجهاز (يُنصح بها دائماً كضمان إضافي):</p>
+        <button class="btn-primary" id="dl">تنزيل نسخة احتياطية</button>
+        <p class="status-line" id="dlStatus"></p>
+        <textarea class="dump" id="dump" readonly>${json}</textarea>
+        <button class="btn-secondary" id="selAll" style="margin-top:10px;">تحديد الكل للنسخ اليدوي</button>
+      </div>
+      <button class="btn-secondary" id="restart">بدء جلسة مشارك جديد</button>
+    `;
+
+    var fname = "pilot_" + (state.participantId||"unknown").replace(/[^a-zA-Z0-9_\-]/g,"_") + "_group" + state.group + ".json";
+
+    function attemptEmail(){
+      var status = wrap.querySelector("#emailStatus");
+      var retry = wrap.querySelector("#retryEmail");
+      status.textContent = "جاري إرسال البيانات بالبريد...";
+      retry.style.display = "none";
+      sendEmailData(json, state.participantId, state.group).then(function(){
+        status.textContent = "تم إرسال البيانات بالبريد بنجاح.";
+      }).catch(function(err){
+        status.textContent = "تعذّر الإرسال التلقائي (تحقق من الاتصال بالإنترنت أو تفعيل البريد أول مرة) — استخدمي التنزيل أو النسخ اليدوي أدناه.";
+        retry.style.display = "inline-block";
+      });
+    }
+    attemptEmail();
+    wrap.querySelector("#retryEmail").addEventListener("click", attemptEmail);
+
+    wrap.querySelector("#dl").addEventListener("click", function(){
+      var status = wrap.querySelector("#dlStatus");
+      try{
+        downloadJSON(fname, json);
+        status.textContent = "تم بدء التنزيل.";
+      }catch(err){
+        status.textContent = "تعذّر التنزيل — استخدم النسخ اليدوي أدناه.";
+      }
+    });
+    wrap.querySelector("#selAll").addEventListener("click", function(){
+      var ta = wrap.querySelector("#dump");
+      ta.focus(); ta.select();
+    });
+    wrap.querySelector("#restart").addEventListener("click", function(){
+      state.screen = "consent";
+      state.participantId = ""; state.group = null;
+      state.demo = {age:"", familiarity:null, dialect:""};
+      state.session = []; state.idx = 0; state.records = [];
+      state.consentChecked = false;
+      render();
+    });
+    return wrap;
+  }
+
+  render();
+})();
+</script>
