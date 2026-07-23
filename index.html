@@ -261,7 +261,7 @@
     screen:"consent",
     participantId:"",
     group:null,
-    demo:{age:"", familiarity:null, dialect:""},
+    demo:{age:"", familiarity:null},
     session:[], // 16 {stim, aiCorrect}
     idx:0,
     stage:1,
@@ -434,10 +434,6 @@
           <label>ما مدى معرفتك برسائل النصب عبر واتساب/المكالمات؟ (1 = لا أعرف شيئاً، 5 = خبرة كبيرة)</label>
           <div class="scale-row" id="famRow">${famBtns}</div>
         </div>
-        <div class="field">
-          <label for="dialect">لهجتك (اختياري)</label>
-          <input type="text" id="dialect" placeholder="مثال: أردنية" value="${state.demo.dialect}"/>
-        </div>
       </div>
       <button class="btn-primary" id="next" ${(!state.demo.age || !state.demo.familiarity)?'disabled':''}>متابعة إلى شرح التجربة</button>
     `;
@@ -445,7 +441,6 @@
       state.demo.age = e.target.value;
       wrap.querySelector("#next").disabled = !(state.demo.age && state.demo.familiarity);
     });
-    wrap.querySelector("#dialect").addEventListener("input", function(e){ state.demo.dialect = e.target.value; });
     wrap.querySelectorAll("[data-fam]").forEach(function(b){
       b.addEventListener("click", function(){
         state.demo.familiarity = parseInt(b.getAttribute("data-fam"),10);
@@ -575,7 +570,6 @@
           group: state.group,
           age_range: state.demo.age,
           familiarity: state.demo.familiarity,
-          dialect_self: state.demo.dialect,
           order_position: state.idx+1,
           item_id: stim.id,
           message_veracity: stim.veracity,
@@ -622,7 +616,7 @@
         <button class="btn-secondary" id="retryEmail" style="display:none;">إعادة محاولة الإرسال</button>
         <hr class="sep"/>
         <p class="muted">نسخة احتياطية على الجهاز (يُنصح بها دائماً كضمان إضافي):</p>
-        <button class="btn-primary" id="dl">ارسال بيانات الجلسة</button>
+        <button class="btn-primary" id="dl">تنزيل نسخة احتياطية</button>
         <p class="status-line" id="dlStatus"></p>
         <textarea class="dump" id="dump" readonly>${json}</textarea>
         <button class="btn-secondary" id="selAll" style="margin-top:10px;">تحديد الكل للنسخ اليدوي</button>
