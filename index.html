@@ -324,8 +324,8 @@
       <div class="card">
         <h2>بيانات الجلسة (يعبّئها الباحث)</h2>
         <div class="field">
-          <label for="pid">رمز المشارك (Participant ID)</label>
-          <input type="text" id="pid" placeholder="مثال: P01" value="${state.participantId}"/>
+          <label for="pid">اسم المشارك (اختياري)</label>
+          <input type="text" id="pid" placeholder="مثال: أحمد" value="${state.participantId}"/>
         </div>
         <div class="field">
           <label>المجموعة</label>
@@ -342,20 +342,19 @@
         <hr class="sep"/>
         <p class="muted">ملاحظة إعداد لمرة واحدة: بيانات كل جلسة تُرسل تلقائياً بالبريد إلى e.abuzaid@ju.edu.jo (مع نسخة إلى a.jdaitawi@ju.edu.jo). أول مرة تشتغل الأداة، خدمة الإرسال (FormSubmit) بترسل بريد "تأكيد" لكل عنوان — لازم تفتحوا هالبريد وتضغطوا رابط التفعيل قبل ما توصل بيانات المشاركين الفعليين. جرّبوا جلسة وهمية أول مرة وتأكدوا إنه البريد وصل.</p>
       </div>
-      <button class="btn-primary" id="startBtn" ${(!state.consentChecked || !state.participantId)?'disabled':''}>متابعة إلى بيانات المشارك</button>
+      <button class="btn-primary" id="startBtn" ${(!state.consentChecked)?'disabled':''}>متابعة إلى بيانات المشارك</button>
     `;
     wrap.querySelector("#consentCk").addEventListener("change", function(e){
       state.consentChecked = e.target.checked; render();
     });
     wrap.querySelector("#pid").addEventListener("input", function(e){
       state.participantId = e.target.value;
-      wrap.querySelector("#startBtn").disabled = !(state.consentChecked && state.participantId);
     });
     wrap.querySelectorAll('input[name=grp]').forEach(function(r){
       r.addEventListener("change", function(e){ state.group = e.target.value; });
     });
     wrap.querySelector("#startBtn").addEventListener("click", function(){
-      if(!state.consentChecked || !state.participantId) return;
+      if(!state.consentChecked) return;
       state.screen = "demographics"; render();
     });
     return wrap;
