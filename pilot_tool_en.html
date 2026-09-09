@@ -1,0 +1,873 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study Tool - Convincing but Wrong (English review build)</title>
+<style>
+  :root{
+    --ink:#1B2420; --ink-soft:#55666B; --paper:#EEF1EE; --surface:#FFFFFF;
+    --surface-2:#F5F7F4; --border:#D8DED9; --accent:#2B6E71; --accent-ink:#FFFFFF;
+    --accent-soft:#DCEBEA; --scam:#B3432B; --scam-soft:#F6E4DF; --safe:#3F7D53;
+    --safe-soft:#E3EFE6; --radius:14px;
+    --shadow:0 1px 2px rgba(20,30,28,.06), 0 10px 28px -14px rgba(20,30,28,.22);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#E7EBE7; --ink-soft:#9FB0AC; --paper:#101617; --surface:#182124;
+      --surface-2:#1E2A2C; --border:#2B3A3D; --accent:#74B8B4; --accent-ink:#0D2422;
+      --accent-soft:#1E3634; --scam:#E38A73; --scam-soft:#3A2420; --safe:#8FCBA1;
+      --safe-soft:#1E332A;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#E7EBE7; --ink-soft:#9FB0AC; --paper:#101617; --surface:#182124;
+    --surface-2:#1E2A2C; --border:#2B3A3D; --accent:#74B8B4; --accent-ink:#0D2422;
+    --accent-soft:#1E3634; --scam:#E38A73; --scam-soft:#3A2420; --safe:#8FCBA1;
+    --safe-soft:#1E332A;
+  }
+  :root[data-theme="light"]{
+    --ink:#1B2420; --ink-soft:#55666B; --paper:#EEF1EE; --surface:#FFFFFF;
+    --surface-2:#F5F7F4; --border:#D8DED9; --accent:#2B6E71; --accent-ink:#FFFFFF;
+    --accent-soft:#DCEBEA; --scam:#B3432B; --scam-soft:#F6E4DF; --safe:#3F7D53;
+    --safe-soft:#E3EFE6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Segoe UI",Roboto,-apple-system,BlinkMacSystemFont,Arial,sans-serif;
+    line-height:1.7; direction:ltr; min-height:100vh;
+    display:flex; justify-content:center; padding:28px 16px 56px;
+  }
+  #app{width:100%; max-width:640px;}
+  .eyebrow{
+    font-size:12.5px; color:var(--ink-soft); letter-spacing:.03em;
+    text-transform:none; margin:0 0 6px;
+  }
+  h1{font-size:22px; margin:0 0 4px; text-wrap:balance;}
+  h2{font-size:18px; margin:0 0 10px; text-wrap:balance;}
+  p{margin:0 0 12px; color:var(--ink);}
+  .muted{color:var(--ink-soft); font-size:14px;}
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:22px 22px 20px; margin-bottom:16px;
+  }
+  .progress-wrap{display:flex; align-items:center; gap:10px; margin-bottom:18px;}
+  .progress-track{flex:1; height:6px; background:var(--surface-2); border-radius:99px; overflow:hidden; border:1px solid var(--border);}
+  .progress-fill{height:100%; background:var(--accent); transition:width .25s ease;}
+  .progress-label{font-size:12.5px; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
+
+  .msg-bubble{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:16px 16px 4px 16px;
+    padding:16px 18px; font-size:15.5px; white-space:pre-line; margin-bottom:18px;
+  }
+  .assistant-card{
+    border:1px solid var(--accent); background:var(--accent-soft); border-radius:16px 16px 16px 4px;
+    padding:16px 18px; margin-bottom:18px;
+  }
+  .assistant-label{font-size:12.5px; color:var(--accent); font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
+  .verdict-badge{
+    display:inline-block; padding:4px 12px; border-radius:99px; font-size:13.5px; font-weight:700;
+  }
+  .verdict-badge.scam{background:var(--scam-soft); color:var(--scam);}
+  .verdict-badge.safe{background:var(--safe-soft); color:var(--safe);}
+  .assistant-explanation{font-size:14.5px; margin-top:10px; color:var(--ink);}
+
+  .field{margin-bottom:18px;}
+  .field label{display:block; font-size:14px; font-weight:600; margin-bottom:8px;}
+  input[type=text], select{
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
+    background:var(--surface); color:var(--ink); font-size:14.5px; font-family:inherit;
+  }
+  .choice-row{display:flex; gap:10px;}
+  .choice-btn{
+    flex:1; padding:14px 10px; border-radius:12px; border:1.5px solid var(--border);
+    background:var(--surface); color:var(--ink); font-size:15px; font-weight:600; cursor:pointer;
+    font-family:inherit; transition:.15s;
+  }
+  .choice-btn:hover{border-color:var(--accent);}
+  .choice-btn.selected.scam{border-color:var(--scam); background:var(--scam-soft); color:var(--scam);}
+  .choice-btn.selected.safe{border-color:var(--safe); background:var(--safe-soft); color:var(--safe);}
+  .scale-row{display:flex; gap:8px; margin-top:8px;}
+  .scale-btn{
+    flex:1; padding:10px 0; border-radius:10px; border:1.5px solid var(--border); background:var(--surface);
+    color:var(--ink); font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;
+    font-variant-numeric:tabular-nums; transition:.15s;
+  }
+  .scale-btn:hover{border-color:var(--accent);}
+  .scale-btn.selected{border-color:var(--accent); background:var(--accent); color:var(--accent-ink);}
+  .scale-caption{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-soft); margin-top:6px;}
+
+  /* continuous 0-100 confidence slider */
+  .conf-slider{
+    -webkit-appearance:none; appearance:none; width:100%; height:8px; border-radius:99px;
+    background:var(--surface-2); border:1px solid var(--border); margin-top:14px;
+    accent-color:var(--accent); cursor:pointer;
+  }
+  .conf-slider.untouched{opacity:.5;}
+  .conf-slider::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:26px; height:26px; border-radius:50%;
+    background:var(--accent); border:3px solid var(--surface); cursor:pointer;
+    box-shadow:0 1px 4px rgba(20,30,28,.3);
+  }
+  .conf-slider::-moz-range-thumb{
+    width:22px; height:22px; border-radius:50%; background:var(--accent);
+    border:3px solid var(--surface); cursor:pointer;
+  }
+  .conf-readout{
+    text-align:center; font-size:20px; font-weight:700; font-variant-numeric:tabular-nums;
+    color:var(--accent); margin-top:10px;
+  }
+  .conf-readout.empty{color:var(--ink-soft); font-weight:600; font-size:14px;}
+  .attn-banner{
+    background:var(--accent-soft); border:1px solid var(--accent); color:var(--ink);
+    border-radius:12px; padding:12px 14px; font-size:14px; margin-bottom:16px; font-weight:600;
+  }
+  .review-banner{
+    background:#FFF4D6; border:1px solid #E0C069; color:#5B4708;
+    border-radius:12px; padding:12px 14px; font-size:13.5px; margin-bottom:16px;
+  }
+  @media (prefers-color-scheme: dark){
+    .review-banner{background:#3A310F; border-color:#6E5A1E; color:#E9D9A0;}
+  }
+
+  .btn-primary{
+    display:inline-block; width:100%; padding:13px 18px; border-radius:11px; border:none;
+    background:var(--accent); color:var(--accent-ink); font-size:15.5px; font-weight:700;
+    cursor:pointer; font-family:inherit; margin-top:6px;
+  }
+  .btn-primary:disabled{opacity:.4; cursor:not-allowed;}
+  .btn-secondary{
+    display:inline-block; padding:10px 16px; border-radius:10px; border:1.5px solid var(--border);
+    background:transparent; color:var(--ink); font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;
+  }
+  .checkbox-row{display:flex; align-items:flex-start; gap:10px; margin-bottom:16px;}
+  .checkbox-row input{margin-top:4px;}
+  .checkbox-row label{font-size:14px; color:var(--ink); cursor:pointer;}
+  ol.steps{padding-inline-start:20px; margin:0 0 8px;}
+  ol.steps li{margin-bottom:10px; font-size:14.5px;}
+  textarea.dump{
+    width:100%; min-height:140px; font-family:Consolas,monospace; font-size:12px;
+    border:1px solid var(--border); border-radius:10px; padding:10px; background:var(--surface-2); color:var(--ink);
+  }
+  .status-line{font-size:13.5px; margin-top:10px; color:var(--ink-soft);}
+  .row-gap{display:flex; gap:10px; flex-wrap:wrap;}
+  .badge-count{font-size:12.5px; color:var(--ink-soft); margin-top:4px;}
+  hr.sep{border:none; border-top:1px solid var(--border); margin:16px 0;}
+</style>
+
+<div id="app"></div>
+
+<script>
+(function(){
+
+  // ---------- Versions / constants ----------
+  var TOOL_VERSION = "pilot_tool_en_v2_2026-09-09";
+  var CONSENT_VERSION = "consent_en_v2_2026-09-09";
+  var STIMULUS_SET_VERSION = "condition_c_16items_en_v1";
+  var RESEARCHER_EMAIL = "e.abuzaid@ju.edu.jo";
+
+  // ---------- Stimuli ----------
+  // NOTE: This is the ENGLISH REVIEW BUILD. The real pilot runs with the original
+  // Jordanian-Arabic WhatsApp/SMS messages; the texts below are faithful English
+  // renderings so a non-Arabic-speaking collaborator can walk the full flow.
+  var STIMULI = [
+    {id:"safe_bank", veracity:"safe", source:"whatsapp",
+     text:"Bank of Jordan: 250 JOD has been deposited into your account. If this transaction was not made by you, visit your nearest branch or call customer service on the number printed on the back of your card.",
+     correct:{verdict:"safe", explanation:"This is a routine deposit notification from the bank. It states a specific amount and directs the recipient to verify through a branch or the official number on the card itself, not an external link. With no link and no request for account details, it is an ordinary, safe bank notice."},
+     wrong:{verdict:"scam", explanation:"The message claims a deposit from the bank, but announcing a specific sum with no prior context is a common trick to spark curiosity and get the recipient to engage or call an unverified number. Directing the user to call rather than check the official app makes it a disguised phishing attempt."}},
+
+    {id:"safe_aramex", veracity:"safe", source:"whatsapp",
+     text:"Hi, this is your Aramex courier. Your parcel will arrive today between 3 and 5 PM. If you'd like to change the address, just reply to this message.",
+     correct:{verdict:"safe", explanation:"A normal delivery-coordination message from a courier. It gives a time window and only asks for a reply to adjust the address if needed. There is no request for a fee, no external link, and no banking details — ordinary operational contact between courier and customer."},
+     wrong:{verdict:"scam", explanation:"The message impersonates an Aramex courier and asks the recipient to reply to change the address, a tactic used to extract an interaction that later confirms the number is active to scammers. A tight time window plus a request to reply directly instead of the official app points to shipping-company impersonation."}},
+
+    {id:"safe_university", veracity:"safe", source:"whatsapp",
+     text:"Dear student, the add/drop period for the current semester is now open. Please log in to the student portal to complete the process.",
+     correct:{verdict:"safe", explanation:"A routine academic announcement directing the student to the university's official portal to complete the well-known add/drop procedure, with no external link and no data requested inside the message itself. Pointing the student to the portal they already know makes it a safe administrative message."},
+     wrong:{verdict:"scam", explanation:"The message exploits familiar academic terms like “add/drop” to look legitimate and push the student to open a “student portal” that could be a fake link mimicking the real site. Timing it around an academically sensitive deadline is a common way to trick students into surrendering their login credentials."}},
+
+    {id:"safe_telecom", veracity:"safe", source:"whatsapp",
+     text:"Dear subscribers, your bundle expires tomorrow. To renew, use the company app or call customer service.",
+     correct:{verdict:"safe", explanation:"A generic service reminder from the telecom operator about bundle expiry, directing the subscriber to renew via the official app or known customer service rather than any link or unofficial number. The absence of any direct request for payment details makes it an ordinary, safe reminder."},
+     wrong:{verdict:"scam", explanation:"The message uses a generic greeting (“Dear subscribers”) rather than addressing the subscriber by name, a pattern common in fake bulk messages that impersonate telecom companies to push recipients to call unofficial numbers under the pretext of renewal. Its impersonal, mass character reveals a wide-net fraud attempt."}},
+
+    {id:"safe_medical", veracity:"safe", source:"whatsapp",
+     text:"Reminder: you have an appointment tomorrow at 11 AM at Abu Zaid Medical Center. If you need to reschedule, please call the clinic.",
+     correct:{verdict:"safe", explanation:"A routine medical reminder giving the center name and appointment time precisely and directing the recipient to call the clinic directly for any change, not a link or text reply. Concrete details already known to the patient make it ordinary, safe appointment coordination."},
+     wrong:{verdict:"scam", explanation:"The message names a specific medical appointment at a center the recipient may not actually have dealt with, a lure that assumes a prior relationship to push the recipient to engage or call an unverified number that appears on reply. Exploiting the sensitivity of medical appointments is a common way to win quick trust from a victim."}},
+
+    {id:"safe_order", veracity:"safe", source:"whatsapp",
+     text:"Hello, your order from the store has arrived at the pickup point. You can collect it within 48 hours.",
+     correct:{verdict:"safe", explanation:"An ordinary order-ready notification giving a reasonable time window, with no payment link, no extra fee, and no banking details. The plain wording and the absence of any sharp time pressure or external link make it a normal customer-service message."},
+     wrong:{verdict:"scam", explanation:"The message is generically worded and names neither the store nor an order number — deliberate vagueness widely used in phishing that claims an “order” exists to trap the recipient into replying or clicking a link to track a shipment they never placed. The lack of any precise identifying detail signals a broad, number-harvesting fraud."}},
+
+    {id:"safe_friend", veracity:"safe", source:"whatsapp",
+     text:"Hey, I've reached the roundabout. When you're done with your errands let me know and I'll swing by.",
+     correct:{verdict:"safe", explanation:"An ordinary personal message between acquaintances, using casual speech and a familiar specific location, with no money request, no link, and no sensitive information. Its simple personal nature and the absence of any promotional or fear element make it entirely safe social contact."},
+     wrong:{verdict:"scam", explanation:"Despite the personal surface, “Hey, I've arrived” messages sent from unsaved numbers are sometimes used as a first step to build rapport that later leads to a request for money under the pretext of an emergency, a pattern common in fraud that impersonates the victim's acquaintances."}},
+
+    {id:"safe_electricity", veracity:"safe", source:"whatsapp",
+     text:"Electricity company: this month's bill has been issued. You can view it through the official app.",
+     correct:{verdict:"safe", explanation:"A routine monthly bill notice directing the subscriber to the company's official app, with no external link and no immediate payment request inside the message itself. Relying on the official channel the subscriber already knows makes it an ordinary, safe service message."},
+     wrong:{verdict:"scam", explanation:"The message uses a routine topic (the electricity bill) to win quick trust, and the missing bill number or specific amount is a gap typically exploited in fake messages that push the recipient to find “the app” through a link sent later rather than the official store. Generic wording with no account detail signals impersonation of the utility."}},
+
+    {id:"scam_bank", veracity:"scam", source:"whatsapp",
+     text:"URGENT! Your bank account has been suspended due to suspicious activity. Reactivate it within 30 minutes via the following link: bank-jo-secure.com",
+     correct:{verdict:"scam", explanation:"The message combines a threat (account suspension), sharp time pressure (30 minutes), and a link on a non-official domain (bank-jo-secure.com) that mimics the bank's name without being its real domain. This mix of urgency and spoofed link is one of the clearest patterns of bank-account phishing."},
+     wrong:{verdict:"safe", explanation:"This is a proactive security message from the bank alerting the customer to suspicious activity and giving a quick link to reactivate the account and protect their money — a routine precaution banks take when they detect a change in usage pattern. The speed of response requested is in the customer's own security interest."}},
+
+    {id:"scam_prize", veracity:"scam", source:"whatsapp",
+     text:"Congratulations! You've won 5000 JOD in the summer campaign. Click the link and enter your bank details to claim the prize.",
+     correct:{verdict:"scam", explanation:"The message promises a large prize (5000 JOD) from a campaign the recipient most likely never entered, and asks for full bank details via a link to receive it — the condition that gives the fraud away: no legitimate party asks for card details to hand over a prize. Pairing a fake win with a request for financial data is a classic fraud pattern."},
+     wrong:{verdict:"safe", explanation:"This is a congratulations message from a real seasonal promotion, and asking for bank details is a routine step to verify the winner's identity before transferring the prize straight to their account with no need to visit a branch. Summer promotions are common among large companies, so the message sits within a legitimate marketing context."}},
+
+    {id:"scam_aramex", veracity:"scam", source:"whatsapp",
+     text:"You have a shipment on hold due to a delivery fee of 1.25 JOD. Pay now via the link so the shipment is not returned.",
+     correct:{verdict:"scam", explanation:"Asking for a tiny amount (1.25 JOD) via a payment link, with a threat to return a shipment of unspecified origin, is a common “small-fee” fraud that relies on the trivial sum lowering the recipient's guard while the real goal is stealing card details on the fake payment page. The absence of a tracking number or sender name confirms the fraud."},
+     wrong:{verdict:"safe", explanation:"This is a simple supplementary delivery-fee message that shipping companies sometimes issue when there is a small difference in the actual cost, and the token amount requested (1.25 JOD) poses no real financial risk to the recipient. Paying a small fee to complete a delivery is a familiar logistics step."}},
+
+    {id:"scam_whatsapp", veracity:"scam", source:"whatsapp",
+     text:"Your account has been reported and will be deleted within the day. Verify your identity through the following link.",
+     correct:{verdict:"scam", explanation:"The message uses a direct threat to delete the account within a short window (one day) to push the recipient to open an “identity verification” link typically used to steal WhatsApp login data or the verification code. WhatsApp does not send report notices by text like this, which makes the message an account-takeover attempt."},
+     wrong:{verdict:"safe", explanation:"This is a routine security alert from the WhatsApp support team when reports are detected on a given account, and verifying identity via the link is a standard protection step meant to prevent the account from being deleted by mistake. Responding quickly here is in the user's interest to protect their account from actual deletion."}},
+
+    {id:"scam_tax", veracity:"scam", source:"whatsapp",
+     text:"Income Tax Department: you have an amount due, and the file will be referred to the courts if payment is not made today. Pay via the link.",
+     correct:{verdict:"scam", explanation:"The message threatens court referral within a single day and asks for payment via a direct link, whereas official government departments do not carry out tax collection or judicial procedures via a text link or with this kind of sharp time pressure. Combining a legal threat, a short deadline, and a payment link is one of the clearest patterns of impersonating government bodies."},
+     wrong:{verdict:"safe", explanation:"This is an official reminder from the Income Tax Department about overdue amounts, and tying payment to a deadline is a routine step to prompt taxpayers to meet their legal payment dates. Providing an electronic payment link is a modern government convenience that saves the taxpayer a visit to the department."}},
+
+    {id:"scam_job", veracity:"scam", source:"whatsapp",
+     text:"You have been accepted for a job with a 1800 JOD salary with no interview. Just pay a 20 JOD registration fee to secure the position.",
+     correct:{verdict:"scam", explanation:"A job acceptance with no interview or prior application, a high salary out of proportion to the absence of any real hiring process, and then a request for a “registration fee” to secure the job — the decisive tell: no legitimate employer asks the employee to pay for being hired. This “fake job” fraud is very common and targets job seekers."},
+     wrong:{verdict:"safe", explanation:"This is a fast job offer from a company using a streamlined screening process without traditional interviews to speed up hiring, and the token registration fee (20 JOD) covers the cost of issuing the employee's badge and official paperwork — a practice known among some fast-growing startups."}},
+
+    {id:"scam_card", veracity:"scam", source:"whatsapp",
+     text:"Your card was used for 980 JOD. If you did not make this transaction, click the link to cancel it immediately.",
+     correct:{verdict:"scam", explanation:"The message states a large, alarming amount (980 JOD) to push the recipient to click a “cancel transaction” link immediately without prior verification, whereas real banks direct the customer to the official app or a direct call to customer service to stop any suspicious transaction — not a link in the message. Exploiting panic over losing a large sum is a common bank-phishing tactic."},
+     wrong:{verdict:"safe", explanation:"This is an immediate security alert from the bank when a large purchase is detected on the card, and the attached link is a quick tool to cancel the suspicious transaction before the transfer completes — a proactive protection measure modern banks offer their customers."}},
+
+    {id:"scam_zain", veracity:"scam", source:"whatsapp",
+     text:"You are one of the first winners of a new iPhone from Zain. Click the link within an hour to confirm receipt of the prize.",
+     correct:{verdict:"scam", explanation:"A promise of a valuable prize (an iPhone) paired with a very tight deadline (one hour) to push the recipient to open the link without thinking, for a prize they never entered for. Real telecom companies do not announce subscriber wins through random text messages tied to an external link like this."},
+     wrong:{verdict:"safe", explanation:"This is a message from a real loyalty campaign that Zain runs to reward loyal customers with periodic draws on new devices, and the short deadline is a routine marketing tactic to encourage quick engagement with the campaign. Such promotional rewards are part of the loyalty programs known among telecom operators."}}
+  ];
+
+  // ---------- Attention-check ("trap") items ----------
+  var ATTENTION_ITEMS = [
+    {id:"attn_safe", attention:true, expected:"safe",
+     text:"Attention check: if you are reading this carefully, choose “Safe” and then press Continue."},
+    {id:"attn_scam", attention:true, expected:"scam",
+     text:"Attention check: to confirm you are paying attention, choose “Scam” and then press Continue."}
+  ];
+
+  // ---------- Helpers ----------
+  function genParticipantId(){
+    return "P-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,7);
+  }
+
+  // ---------- State ----------
+  var state = {
+    screen:"consent",
+    participantId: genParticipantId(),
+    participantLabel:"",
+    group:null,
+    demo:{age:"", gender:"", dialect:"", digitalLiteracy:null, scamFamiliarity:null, scamExposure:"", scamVictimisation:""},
+    session:[],
+    idx:0,
+    stage:1,
+    curDecision:null, curConfidence:null,
+    initDecision:null, initConfidence:null, t1start:0, t1end:0, t2reveal:0,
+    records:[],
+    consentChecked:false,
+    consentTimestamp:""
+  };
+
+  function readCounts(){
+    try{ return JSON.parse(localStorage.getItem("pilotGroupCountsEN")||'{"A":0,"B":0}'); }
+    catch(e){ return {A:0,B:0}; }
+  }
+  function bumpCount(g){
+    var c = readCounts(); c[g] = (c[g]||0)+1;
+    try{ localStorage.setItem("pilotGroupCountsEN", JSON.stringify(c)); }catch(e){}
+  }
+  function suggestGroup(){
+    var c = readCounts();
+    return (c.A <= c.B) ? "A" : "B";
+  }
+
+  function downloadJSON(filename, dataStr){
+    var blob = new Blob([dataStr], {type:"application/json"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function sendEmailData(jsonStr, participantId, group){
+    var payload = {
+      _subject: "Pilot participant " + (participantId||"unknown") + " - group " + group + " [EN review build]",
+      _cc: "a.jdaitawi@ju.edu.jo",
+      _captcha: "false",
+      _template: "box",
+      participant_id: participantId,
+      group: group,
+      tool_version: TOOL_VERSION,
+      trials_json: jsonStr
+    };
+    return fetch("https://formsubmit.co/ajax/e.abuzaid@ju.edu.jo", {
+      method: "POST",
+      headers: {"Content-Type":"application/json","Accept":"application/json"},
+      body: JSON.stringify(payload)
+    }).then(function(res){
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    });
+  }
+
+  function shuffle(arr){
+    var a = arr.slice();
+    for(var i=a.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var t=a[i]; a[i]=a[j]; a[j]=t;
+    }
+    return a;
+  }
+
+  function buildSession(){
+    var scam = shuffle(STIMULI.filter(function(s){return s.veracity==="scam";}));
+    var safe = shuffle(STIMULI.filter(function(s){return s.veracity==="safe";}));
+    var trials = [];
+    scam.forEach(function(s,i){ trials.push({stim:s, aiCorrect: i<4}); });
+    safe.forEach(function(s,i){ trials.push({stim:s, aiCorrect: i<4}); });
+    trials = shuffle(trials);
+
+    var attn = shuffle(ATTENTION_ITEMS).map(function(a){ return {stim:a, aiCorrect:null, attention:true}; });
+    var positions = [];
+    var guard = 0;
+    while(positions.length < 2 && guard < 200){
+      guard++;
+      var p = 2 + Math.floor(Math.random() * (trials.length - 3));
+      if(positions.indexOf(p) === -1 && (positions.length === 0 || Math.abs(positions[0]-p) >= 3)){
+        positions.push(p);
+      }
+    }
+    positions.sort(function(a,b){ return a-b; });
+    trials.splice(positions[0], 0, attn[0]);
+    trials.splice(positions[1] + 1, 0, attn[1]);
+    return trials;
+  }
+
+  function demoComplete(){
+    var d = state.demo;
+    return !!(d.age && d.gender && d.dialect && d.digitalLiteracy && d.scamFamiliarity && d.scamExposure && d.scamVictimisation);
+  }
+
+  // ---------- Rendering ----------
+  var app = document.getElementById("app");
+
+  function el(html){
+    var d = document.createElement("div");
+    d.innerHTML = html;
+    return d.firstElementChild;
+  }
+
+  function render(){
+    app.innerHTML = "";
+    if(state.screen==="consent") app.appendChild(renderConsent());
+    else if(state.screen==="demographics") app.appendChild(renderDemographics());
+    else if(state.screen==="instructions") app.appendChild(renderInstructions());
+    else if(state.screen==="trial") app.appendChild(renderTrial());
+    else if(state.screen==="debrief") app.appendChild(renderDebrief());
+  }
+
+  function renderConsent(){
+    var counts = readCounts();
+    var suggested = suggestGroup();
+    if(state.group===null) state.group = suggested;
+    var wrap = el('<div></div>');
+    wrap.innerHTML = `
+      <p class="eyebrow">Behavioural user study &mdash; pilot</p>
+      <h1>Convincing but Wrong</h1>
+      <div class="review-banner"><strong>English review build.</strong> This is a translated walkthrough for a non-Arabic-speaking collaborator. The live pilot runs with the original Jordanian-Arabic WhatsApp messages; the message texts here are faithful English renderings.</div>
+      <div class="card">
+        <h2>Research team and study title</h2>
+        <p>The research team &mdash; <strong>Dr. Asma Jdaitawi</strong> (Assistant Professor), <strong>Dr. Debashree Debadatta</strong> (Associate Professor), <strong>Dr. Sara Al-Maaytah</strong> (Doctoral Researcher), <strong>Dr. Isra&rsquo;a Abuzaid</strong> (Doctoral Researcher) &mdash; is conducting a study titled:</p>
+        <p style="font-weight:600;">&ldquo;Convincing but Wrong: How Arabic-Speaking Users Over-Rely on LLM-Generated Explanations in WhatsApp Scam Detection&rdquo;</p>
+      </div>
+      <div class="card">
+        <h2>About the study</h2>
+        <p>This is an academic study of how people handle potentially fraudulent messages when an AI assistant helps them judge. You will see a number of short messages and give your opinion on each one in two stages.</p>
+        <p class="muted">The AI assistant used in this experiment is sometimes wrong, just like any real AI tool. That is a normal part of the experiment.</p>
+        <p class="muted">Participation is entirely voluntary and you may stop at any time with no obligation. Data are collected without your real name and used for academic research purposes only (a paper / conference paper). Approximate duration: 12&ndash;15 minutes. The study has ethical approval from the University of Jordan.</p>
+        <div class="checkbox-row">
+          <input type="checkbox" id="consentCk" ${state.consentChecked?'checked':''}/>
+          <label for="consentCk">I voluntarily agree to participate, and I confirm that I am 18 years or older.</label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Session details (filled in by the researcher)</h2>
+        <div class="field">
+          <label for="plabel">Participant name or a label to remind the researcher (optional)</label>
+          <input type="text" id="plabel" placeholder="Optional &mdash; not used in analysis" value="${state.participantLabel}"/>
+          <p class="badge-count">Auto-generated participant id (logged with the data): <span>${state.participantId}</span></p>
+        </div>
+        <div class="field">
+          <label>Group</label>
+          <div class="row-gap">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:14px;">
+              <input type="radio" name="grp" value="A" ${state.group==='A'?'checked':''}/> A &mdash; verdict only
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:14px;">
+              <input type="radio" name="grp" value="B" ${state.group==='B'?'checked':''}/> B &mdash; verdict + explanation
+            </label>
+          </div>
+          <p class="badge-count">Current split on this device: A = ${counts.A||0} | B = ${counts.B||0} (suggested: ${suggested})</p>
+        </div>
+        <hr class="sep"/>
+        <p class="muted">All sessions are run in the presence of a research-team member. Each session's data is emailed automatically as a JSON file to e.abuzaid@ju.edu.jo with a copy to a.jdaitawi@ju.edu.jo. The first time the tool runs, the mail service (FormSubmit) sends a &ldquo;confirm&rdquo; email to each address &mdash; open it and click the activation link before running any real session, and run one dummy session first to check the email arrives.</p>
+      </div>
+      <button class="btn-primary" id="startBtn" ${(!state.consentChecked)?'disabled':''}>Continue to participant details</button>
+    `;
+    wrap.querySelector("#consentCk").addEventListener("change", function(e){
+      state.consentChecked = e.target.checked;
+      state.consentTimestamp = e.target.checked ? new Date().toISOString() : "";
+      render();
+    });
+    wrap.querySelector("#plabel").addEventListener("input", function(e){
+      state.participantLabel = e.target.value;
+    });
+    wrap.querySelectorAll('input[name=grp]').forEach(function(r){
+      r.addEventListener("change", function(e){ state.group = e.target.value; });
+    });
+    wrap.querySelector("#startBtn").addEventListener("click", function(){
+      if(!state.consentChecked) return;
+      if(!state.consentTimestamp) state.consentTimestamp = new Date().toISOString();
+      state.screen = "demographics"; render();
+    });
+    return wrap;
+  }
+
+  function renderDemographics(){
+    var wrap = el('<div></div>');
+    var dl = state.demo.digitalLiteracy;
+    var fam = state.demo.scamFamiliarity;
+    var dlBtns = [1,2,3,4,5].map(function(n){
+      return `<button type="button" class="scale-btn ${dl===n?'selected':''}" data-dl="${n}">${n}</button>`;
+    }).join("");
+    var famBtns = [1,2,3,4,5].map(function(n){
+      return `<button type="button" class="scale-btn ${fam===n?'selected':''}" data-fam="${n}">${n}</button>`;
+    }).join("");
+    wrap.innerHTML = `
+      <p class="eyebrow">Before we start</p>
+      <h1>Preliminary details</h1>
+      <div class="card">
+        <div class="field">
+          <label for="age">Age range</label>
+          <select id="age">
+            <option value="">Choose...</option>
+            <option value="18-24" ${state.demo.age==='18-24'?'selected':''}>18-24</option>
+            <option value="25-34" ${state.demo.age==='25-34'?'selected':''}>25-34</option>
+            <option value="35-44" ${state.demo.age==='35-44'?'selected':''}>35-44</option>
+            <option value="45-54" ${state.demo.age==='45-54'?'selected':''}>45-54</option>
+            <option value="55+" ${state.demo.age==='55+'?'selected':''}>55+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="gender">Gender</label>
+          <select id="gender">
+            <option value="">Choose...</option>
+            <option value="female" ${state.demo.gender==='female'?'selected':''}>Female</option>
+            <option value="male" ${state.demo.gender==='male'?'selected':''}>Male</option>
+            <option value="prefer_not" ${state.demo.gender==='prefer_not'?'selected':''}>Prefer not to say</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="dialect">Dialect / language background</label>
+          <select id="dialect">
+            <option value="">Choose...</option>
+            <option value="jordanian" ${state.demo.dialect==='jordanian'?'selected':''}>Jordanian</option>
+            <option value="levantine_other" ${state.demo.dialect==='levantine_other'?'selected':''}>Other Levantine</option>
+            <option value="gulf" ${state.demo.dialect==='gulf'?'selected':''}>Gulf</option>
+            <option value="other" ${state.demo.dialect==='other'?'selected':''}>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>How would you rate your technology and internet skills? (1 = very weak, 5 = excellent)</label>
+          <div class="scale-row" id="dlRow">${dlBtns}</div>
+        </div>
+        <div class="field">
+          <label>How familiar are you with scam messages over WhatsApp / phone calls? (1 = know nothing, 5 = very experienced)</label>
+          <div class="scale-row" id="famRow">${famBtns}</div>
+        </div>
+        <div class="field">
+          <label for="exposure">Have you ever received a scam message that targeted you personally?</label>
+          <select id="exposure">
+            <option value="">Choose...</option>
+            <option value="yes" ${state.demo.scamExposure==='yes'?'selected':''}>Yes</option>
+            <option value="no" ${state.demo.scamExposure==='no'?'selected':''}>No</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="victim">Have you ever lost money or data because of a scam message?</label>
+          <select id="victim">
+            <option value="">Choose...</option>
+            <option value="yes" ${state.demo.scamVictimisation==='yes'?'selected':''}>Yes</option>
+            <option value="no" ${state.demo.scamVictimisation==='no'?'selected':''}>No</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary" id="next" ${demoComplete()?'':'disabled'}>Continue to instructions</button>
+    `;
+    function syncNext(){
+      var nb = wrap.querySelector("#next");
+      if(nb) nb.disabled = !demoComplete();
+    }
+    wrap.querySelector("#age").addEventListener("change", function(e){ state.demo.age = e.target.value; syncNext(); });
+    wrap.querySelector("#gender").addEventListener("change", function(e){ state.demo.gender = e.target.value; syncNext(); });
+    wrap.querySelector("#dialect").addEventListener("change", function(e){ state.demo.dialect = e.target.value; syncNext(); });
+    wrap.querySelector("#exposure").addEventListener("change", function(e){ state.demo.scamExposure = e.target.value; syncNext(); });
+    wrap.querySelector("#victim").addEventListener("change", function(e){ state.demo.scamVictimisation = e.target.value; syncNext(); });
+    wrap.querySelectorAll("[data-dl]").forEach(function(b){
+      b.addEventListener("click", function(){
+        state.demo.digitalLiteracy = parseInt(b.getAttribute("data-dl"),10);
+        render();
+      });
+    });
+    wrap.querySelectorAll("[data-fam]").forEach(function(b){
+      b.addEventListener("click", function(){
+        state.demo.scamFamiliarity = parseInt(b.getAttribute("data-fam"),10);
+        render();
+      });
+    });
+    wrap.querySelector("#next").addEventListener("click", function(){
+      if(!demoComplete()) return;
+      state.screen = "instructions"; render();
+    });
+    return wrap;
+  }
+
+  function renderInstructions(){
+    var wrap = el('<div></div>');
+    wrap.innerHTML = `
+      <p class="eyebrow">Instructions</p>
+      <h1>How each message works</h1>
+      <div class="card">
+        <ol class="steps">
+          <li><strong>You read the message</strong> and give your opinion: is it &ldquo;Scam&rdquo; or &ldquo;Safe&rdquo;? Then you set how confident you are on a continuous 0&ndash;100 slider.</li>
+          <li><strong>The AI assistant's assessment</strong> of the same message is shown to you.</li>
+          <li><strong>You give your final decision</strong> after seeing the assistant's assessment &mdash; it can be the same as your first answer or different &mdash; and again you set your confidence on the same slider.</li>
+        </ol>
+        <p class="muted">There are no &ldquo;correct&rdquo; answers expected of you in advance &mdash; we want your honest opinion at each stage. Two short attention-check messages will also appear that explicitly ask for a specific choice. No need to think for long; answer with your first reasonable impression.</p>
+      </div>
+      <button class="btn-primary" id="beginBtn">Start the experiment</button>
+    `;
+    wrap.querySelector("#beginBtn").addEventListener("click", function(){
+      state.session = buildSession();
+      state.idx = 0;
+      bumpCount(state.group);
+      startTrial();
+    });
+    return wrap;
+  }
+
+  function startTrial(){
+    state.stage = 1;
+    state.curDecision = null;
+    state.curConfidence = null;
+    state.t1start = Date.now();
+    state.screen = "trial";
+    render();
+  }
+
+  function confSliderHTML(promptText){
+    var v = (state.curConfidence==null) ? 50 : state.curConfidence;
+    var untouched = (state.curConfidence==null) ? " untouched" : "";
+    var readout = (state.curConfidence==null)
+      ? `<div class="conf-readout empty" id="confReadout">Drag the slider to set your confidence</div>`
+      : `<div class="conf-readout" id="confReadout">${state.curConfidence} / 100</div>`;
+    return `
+      <p style="font-weight:600;margin:16px 0 4px;">${promptText}</p>
+      <input type="range" min="0" max="100" step="1" value="${v}" class="conf-slider${untouched}" id="confSlider"/>
+      <div class="scale-caption"><span>0 &mdash; not at all confident</span><span>completely confident &mdash; 100</span></div>
+      ${readout}
+    `;
+  }
+  function wireConfSlider(wrap, nextBtnId){
+    var slider = wrap.querySelector("#confSlider");
+    var readout = wrap.querySelector("#confReadout");
+    if(!slider) return;
+    slider.addEventListener("input", function(){
+      state.curConfidence = parseInt(slider.value,10);
+      slider.classList.remove("untouched");
+      readout.classList.remove("empty");
+      readout.textContent = state.curConfidence + " / 100";
+      var nb = wrap.querySelector("#"+nextBtnId);
+      if(nb) nb.disabled = !(state.curDecision && state.curConfidence!=null);
+    });
+  }
+
+  function baseRecord(stim){
+    return {
+      participant_id: state.participantId,
+      participant_label: state.participantLabel,
+      group: state.group,
+      age_range: state.demo.age,
+      gender: state.demo.gender,
+      dialect_background: state.demo.dialect,
+      digital_literacy: state.demo.digitalLiteracy,
+      scam_familiarity: state.demo.scamFamiliarity,
+      scam_exposure: state.demo.scamExposure,
+      scam_victimisation: state.demo.scamVictimisation,
+      order_position: state.idx+1,
+      item_id: stim.id,
+      consent_version: CONSENT_VERSION,
+      consent_timestamp: state.consentTimestamp,
+      tool_version: TOOL_VERSION,
+      stimulus_set_version: STIMULUS_SET_VERSION,
+      researcher_administered: true
+    };
+  }
+
+  function renderTrial(){
+    var trialNum = state.idx+1;
+    var total = state.session.length;
+    var current = state.session[state.idx];
+    var stim = current.stim;
+    var isAttn = !!current.attention;
+
+    var pct = isAttn
+      ? Math.round((state.idx + 0.5) / total * 100)
+      : Math.round(((state.idx) + (state.stage-1)*0.5) / total * 100);
+
+    var wrap = el('<div></div>');
+    var stageLabel = isAttn ? "attention check" : ("stage " + state.stage + " of 2");
+    var top = `
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%;"></div></div>
+        <div class="progress-label">Message ${trialNum} of ${total} &middot; ${stageLabel}</div>
+      </div>
+      <div class="msg-bubble">${stim.text}</div>
+    `;
+
+    if(isAttn){
+      wrap.innerHTML = top + `
+        <div class="attn-banner">This is an attention-check message only, not one of the assessment messages.</div>
+        <div class="card">
+          <p style="font-weight:600;margin-bottom:10px;">Choose the answer requested in the message text above.</p>
+          <div class="choice-row">
+            <button type="button" class="choice-btn ${state.curDecision==='scam'?'selected scam':''}" data-d="scam">Scam</button>
+            <button type="button" class="choice-btn ${state.curDecision==='safe'?'selected safe':''}" data-d="safe">Safe</button>
+          </div>
+          ${confSliderHTML("How confident are you in this decision?")}
+          <button class="btn-primary" id="attnNext" ${(!state.curDecision||state.curConfidence==null)?'disabled':''}>Continue</button>
+        </div>
+      `;
+      wrap.querySelectorAll("[data-d]").forEach(function(b){
+        b.addEventListener("click", function(){ state.curDecision = b.getAttribute("data-d"); render(); });
+      });
+      wireConfSlider(wrap, "attnNext");
+      var an = wrap.querySelector("#attnNext");
+      if(an) an.addEventListener("click", function(){
+        if(!state.curDecision || state.curConfidence==null) return;
+        var rec = baseRecord(stim);
+        rec.is_attention_check = true;
+        rec.attention_check_expected = stim.expected;
+        rec.attention_check_pass = (state.curDecision === stim.expected);
+        rec.message_veracity = null;
+        rec.message_source = null;
+        rec.ai_verdict = null;
+        rec.ai_correct = null;
+        rec.initial_decision = state.curDecision;
+        rec.initial_confidence = state.curConfidence;
+        rec.stage1_response_ms = Date.now() - state.t1start;
+        rec.final_decision = null;
+        rec.final_confidence = null;
+        rec.decision_time_ms = null;
+        rec.switched_decision = null;
+        state.records.push(rec);
+        if(state.idx+1 < total){ state.idx += 1; startTrial(); }
+        else { state.screen = "debrief"; render(); }
+      });
+      return wrap;
+    }
+
+    if(state.stage===1){
+      wrap.innerHTML = top + `
+        <div class="card">
+          <p style="font-weight:600;margin-bottom:10px;">In your opinion, is this message a scam or safe?</p>
+          <div class="choice-row">
+            <button type="button" class="choice-btn ${state.curDecision==='scam'?'selected scam':''}" data-d="scam">Scam</button>
+            <button type="button" class="choice-btn ${state.curDecision==='safe'?'selected safe':''}" data-d="safe">Safe</button>
+          </div>
+          ${confSliderHTML("How confident are you in this decision?")}
+          <button class="btn-primary" id="s1next" ${(!state.curDecision||state.curConfidence==null)?'disabled':''}>Continue</button>
+        </div>
+      `;
+      wrap.querySelectorAll("[data-d]").forEach(function(b){
+        b.addEventListener("click", function(){ state.curDecision = b.getAttribute("data-d"); render(); });
+      });
+      wireConfSlider(wrap, "s1next");
+      var nextBtn = wrap.querySelector("#s1next");
+      if(nextBtn) nextBtn.addEventListener("click", function(){
+        if(!state.curDecision || state.curConfidence==null) return;
+        state.t1end = Date.now();
+        state.initDecision = state.curDecision;
+        state.initConfidence = state.curConfidence;
+        state.curDecision = null; state.curConfidence = null;
+        state.stage = 2;
+        state.t2reveal = Date.now();
+        render();
+      });
+      return wrap;
+    }
+
+    var aiOut = current.aiCorrect ? stim.correct : stim.wrong;
+    var showExplanation = state.group === "B";
+    wrap.innerHTML = top + `
+      <div class="assistant-card">
+        <div class="assistant-label">AI assistant's assessment</div>
+        <span class="verdict-badge ${aiOut.verdict}">${aiOut.verdict==='scam' ? 'Scam' : 'Safe'}</span>
+        ${showExplanation ? `<div class="assistant-explanation">${aiOut.explanation}</div>` : ``}
+      </div>
+      <div class="card">
+        <p style="font-weight:600;margin-bottom:10px;">After seeing the assistant's assessment, what is your final decision?</p>
+        <div class="choice-row">
+          <button type="button" class="choice-btn ${state.curDecision==='scam'?'selected scam':''}" data-d="scam">Scam</button>
+          <button type="button" class="choice-btn ${state.curDecision==='safe'?'selected safe':''}" data-d="safe">Safe</button>
+        </div>
+        ${confSliderHTML("How confident are you in this final decision?")}
+        <button class="btn-primary" id="s2next" ${(!state.curDecision||state.curConfidence==null)?'disabled':''}>${state.idx+1<total?'Next message':'Finish'}</button>
+      </div>
+    `;
+    wrap.querySelectorAll("[data-d]").forEach(function(b){
+      b.addEventListener("click", function(){ state.curDecision = b.getAttribute("data-d"); render(); });
+    });
+    wireConfSlider(wrap, "s2next");
+    var endBtn = wrap.querySelector("#s2next");
+    if(endBtn) endBtn.addEventListener("click", function(){
+      if(!state.curDecision || state.curConfidence==null) return;
+      var t3 = Date.now();
+      var rec = baseRecord(stim);
+      rec.is_attention_check = false;
+      rec.attention_check_expected = null;
+      rec.attention_check_pass = null;
+      rec.message_veracity = stim.veracity;
+      rec.message_source = stim.source;
+      rec.ai_verdict = aiOut.verdict;
+      rec.ai_correct = current.aiCorrect;
+      rec.initial_decision = state.initDecision;
+      rec.initial_confidence = state.initConfidence;
+      rec.stage1_response_ms = state.t1end - state.t1start;
+      rec.final_decision = state.curDecision;
+      rec.final_confidence = state.curConfidence;
+      rec.decision_time_ms = t3 - state.t2reveal;
+      rec.switched_decision = state.initDecision !== state.curDecision;
+      state.records.push(rec);
+      if(state.idx+1 < total){
+        state.idx += 1;
+        startTrial();
+      } else {
+        state.screen = "debrief"; render();
+      }
+    });
+    return wrap;
+  }
+
+  function renderDebrief(){
+    var wrap = el('<div></div>');
+    var attnPassed = state.records.filter(function(r){ return r.is_attention_check && r.attention_check_pass; }).length;
+    var attnTotal = state.records.filter(function(r){ return r.is_attention_check; }).length;
+    var json = JSON.stringify({
+      participant_id: state.participantId,
+      participant_label: state.participantLabel,
+      group: state.group,
+      demographics: {
+        age_range: state.demo.age,
+        gender: state.demo.gender,
+        dialect_background: state.demo.dialect,
+        digital_literacy: state.demo.digitalLiteracy,
+        scam_familiarity: state.demo.scamFamiliarity,
+        scam_exposure: state.demo.scamExposure,
+        scam_victimisation: state.demo.scamVictimisation
+      },
+      consent_version: CONSENT_VERSION,
+      consent_timestamp: state.consentTimestamp,
+      tool_version: TOOL_VERSION,
+      stimulus_set_version: STIMULUS_SET_VERSION,
+      researcher_administered: true,
+      n_trials_logged: state.records.length,
+      attention_checks_passed: attnPassed,
+      attention_checks_total: attnTotal,
+      trials: state.records
+    }, null, 2);
+    wrap.innerHTML = `
+      <p class="eyebrow">The experiment is over &mdash; thank you</p>
+      <h1>Study debrief</h1>
+      <div class="card">
+        <p>Thank you for taking part. We now explain the study's full purpose: some of the AI assistant's assessments you saw were <strong>deliberately wrong</strong>, in order to measure how much people rely on AI recommendations even when they are incorrect &mdash; particularly when an explanation accompanies the assessment.</p>
+        <p class="muted">Your data is stored under the participant id only, with no identifying information, and will be used in an aggregate statistical analysis within academic research. If you have any questions or wish to withdraw your data, contact the researcher at ${RESEARCHER_EMAIL}.</p>
+      </div>
+      <div class="card">
+        <h2>Send this session's data</h2>
+        <p class="status-line" id="emailStatus">Sending data by email...</p>
+        <button class="btn-secondary" id="retryEmail" style="display:none;">Retry sending</button>
+        <hr class="sep"/>
+        <p class="muted">Local backup copy (always recommended as an extra safeguard):</p>
+        <button class="btn-primary" id="dl">Download backup copy</button>
+        <p class="status-line" id="dlStatus"></p>
+        <textarea class="dump" id="dump" readonly>${json}</textarea>
+        <button class="btn-secondary" id="selAll" style="margin-top:10px;">Select all for manual copy</button>
+      </div>
+      <button class="btn-secondary" id="restart">Start a new participant session</button>
+    `;
+
+    var fname = "pilot_en_" + (state.participantId||"unknown").replace(/[^a-zA-Z0-9_\-]/g,"_") + "_group" + state.group + ".json";
+
+    function attemptEmail(){
+      var status = wrap.querySelector("#emailStatus");
+      var retry = wrap.querySelector("#retryEmail");
+      status.textContent = "Sending data by email...";
+      retry.style.display = "none";
+      sendEmailData(json, state.participantId, state.group).then(function(){
+        status.textContent = "Data sent by email successfully.";
+      }).catch(function(err){
+        status.textContent = "Automatic sending failed (check the internet connection or first-time email activation) — use the download or manual copy below.";
+        retry.style.display = "inline-block";
+      });
+    }
+    attemptEmail();
+    wrap.querySelector("#retryEmail").addEventListener("click", attemptEmail);
+
+    wrap.querySelector("#dl").addEventListener("click", function(){
+      var status = wrap.querySelector("#dlStatus");
+      try{
+        downloadJSON(fname, json);
+        status.textContent = "Download started.";
+      }catch(err){
+        status.textContent = "Download failed — use the manual copy below.";
+      }
+    });
+    wrap.querySelector("#selAll").addEventListener("click", function(){
+      var ta = wrap.querySelector("#dump");
+      ta.focus(); ta.select();
+    });
+    wrap.querySelector("#restart").addEventListener("click", function(){
+      state.screen = "consent";
+      state.participantId = genParticipantId();
+      state.participantLabel = "";
+      state.group = null;
+      state.demo = {age:"", gender:"", dialect:"", digitalLiteracy:null, scamFamiliarity:null, scamExposure:"", scamVictimisation:""};
+      state.session = []; state.idx = 0; state.records = [];
+      state.consentChecked = false; state.consentTimestamp = "";
+      render();
+    });
+    return wrap;
+  }
+
+  render();
+})();
+</script>

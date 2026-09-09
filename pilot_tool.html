@@ -1,4 +1,7 @@
-<title>أداة الدراسة - الثقة أم الاعتماد المفرط؟ | Trust or Over-Reliance?</title>
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>أداة الدراسة - مُقنِع لكنه خاطئ | Convincing but Wrong</title>
 <style>
   :root{
     --ink:#1B2420; --ink-soft:#55666B; --paper:#EEF1EE; --surface:#FFFFFF;
@@ -95,6 +98,32 @@
   .scale-btn.selected{border-color:var(--accent); background:var(--accent); color:var(--accent-ink);}
   .scale-caption{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-soft); margin-top:6px;}
 
+  /* continuous 0-100 confidence slider */
+  .conf-slider{
+    -webkit-appearance:none; appearance:none; width:100%; height:8px; border-radius:99px;
+    background:var(--surface-2); border:1px solid var(--border); margin-top:14px;
+    accent-color:var(--accent); cursor:pointer;
+  }
+  .conf-slider.untouched{opacity:.5;}
+  .conf-slider::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:26px; height:26px; border-radius:50%;
+    background:var(--accent); border:3px solid var(--surface); cursor:pointer;
+    box-shadow:0 1px 4px rgba(20,30,28,.3);
+  }
+  .conf-slider::-moz-range-thumb{
+    width:22px; height:22px; border-radius:50%; background:var(--accent);
+    border:3px solid var(--surface); cursor:pointer;
+  }
+  .conf-readout{
+    text-align:center; font-size:20px; font-weight:700; font-variant-numeric:tabular-nums;
+    color:var(--accent); margin-top:10px;
+  }
+  .conf-readout.empty{color:var(--ink-soft); font-weight:600; font-size:14px;}
+  .attn-banner{
+    background:var(--accent-soft); border:1px solid var(--accent); color:var(--ink);
+    border-radius:12px; padding:12px 14px; font-size:14px; margin-bottom:16px; font-weight:600;
+  }
+
   .btn-primary{
     display:inline-block; width:100%; padding:13px 18px; border-radius:11px; border:none;
     background:var(--accent); color:var(--accent-ink); font-size:15.5px; font-weight:700;
@@ -124,6 +153,12 @@
 
 <script>
 (function(){
+
+  // ---------- Versions / constants (logged into every record for reproducibility) ----------
+  var TOOL_VERSION = "pilot_tool_v2_2026-09-09";
+  var CONSENT_VERSION = "consent_v2_2026-09-09";
+  var STIMULUS_SET_VERSION = "condition_c_16items_v1";
+  var RESEARCHER_EMAIL = "e.abuzaid@ju.edu.jo";
 
   // ---------- Stimuli (Jordanian WhatsApp/SMS style, per Dr. Asmaa's review) ----------
   var STIMULI = [
@@ -208,19 +243,34 @@
      wrong:{verdict:"safe", explanation:"هذه رسالة من حملة ولاء حقيقية تطلقها شركة زين لمكافأة عملائها الأوفياء بسحوبات دورية على أجهزة حديثة، والمهلة الزمنية القصيرة أسلوب تسويقي معتاد لتحفيز التفاعل السريع مع الحملة. مثل هذه المكافآت الترويجية جزء من برامج الولاء المعروفة لدى شركات الاتصالات."}}
   ];
 
+  // ---------- Attention-check ("trap") items — 2 inserted per session, single-stage, no AI reveal ----------
+  var ATTENTION_ITEMS = [
+    {id:"attn_safe", attention:true, expected:"safe",
+     text:"رسالة تحقّق من الانتباه: إذا كنت تقرأ هذه الرسالة بعناية، اختر «آمنة» ثم اضغط متابعة."},
+    {id:"attn_scam", attention:true, expected:"scam",
+     text:"رسالة تحقّق من الانتباه: للتأكد من متابعتك، اختر «احتيال» ثم اضغط متابعة."}
+  ];
+
+  // ---------- Helpers ----------
+  function genParticipantId(){
+    return "P-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,7);
+  }
+
   // ---------- State ----------
   var state = {
     screen:"consent",
-    participantId:"",
+    participantId: genParticipantId(),
+    participantLabel:"",
     group:null,
-    demo:{age:"", familiarity:null},
-    session:[], // 16 {stim, aiCorrect}
+    demo:{age:"", gender:"", dialect:"", digitalLiteracy:null, scamFamiliarity:null, scamExposure:"", scamVictimisation:""},
+    session:[], // 16 real trials + 2 attention checks
     idx:0,
     stage:1,
     curDecision:null, curConfidence:null,
     initDecision:null, initConfidence:null, t1start:0, t1end:0, t2reveal:0,
     records:[],
-    consentChecked:false
+    consentChecked:false,
+    consentTimestamp:""
   };
 
   function readCounts(){
@@ -255,6 +305,7 @@
       _template: "box",
       participant_id: participantId,
       group: group,
+      tool_version: TOOL_VERSION,
       trials_json: jsonStr
     };
     return fetch("https://formsubmit.co/ajax/e.abuzaid@ju.edu.jo", {
@@ -282,7 +333,28 @@
     var trials = [];
     scam.forEach(function(s,i){ trials.push({stim:s, aiCorrect: i<4}); });
     safe.forEach(function(s,i){ trials.push({stim:s, aiCorrect: i<4}); });
-    return shuffle(trials);
+    trials = shuffle(trials);
+
+    // insert the 2 attention-check trials at distinct interior positions (never first / last, >=3 apart)
+    var attn = shuffle(ATTENTION_ITEMS).map(function(a){ return {stim:a, aiCorrect:null, attention:true}; });
+    var positions = [];
+    var guard = 0;
+    while(positions.length < 2 && guard < 200){
+      guard++;
+      var p = 2 + Math.floor(Math.random() * (trials.length - 3)); // 2 .. trials.length-2
+      if(positions.indexOf(p) === -1 && (positions.length === 0 || Math.abs(positions[0]-p) >= 3)){
+        positions.push(p);
+      }
+    }
+    positions.sort(function(a,b){ return a-b; });
+    trials.splice(positions[0], 0, attn[0]);
+    trials.splice(positions[1] + 1, 0, attn[1]); // +1: array grew by one after the first splice
+    return trials;
+  }
+
+  function demoComplete(){
+    var d = state.demo;
+    return !!(d.age && d.gender && d.dialect && d.digitalLiteracy && d.scamFamiliarity && d.scamExposure && d.scamVictimisation);
   }
 
   // ---------- Rendering ----------
@@ -309,20 +381,20 @@
     if(state.group===null) state.group = suggested;
     var wrap = el('<div></div>');
     wrap.innerHTML = `
-      <p class="eyebrow">دراسة في الحوسبة الاجتماعية &mdash; المرحلة التجريبية (Pilot)</p>
-      <h1>الثقة أم الاعتماد المفرط؟</h1>
+      <p class="eyebrow">دراسة سلوكية للمستخدمين &mdash; المرحلة التجريبية (Pilot)</p>
+      <h1>مُقنِع لكنه خاطئ</h1>
       <div class="card">
         <h2>فريق البحث وعنوان الدراسة</h2>
         <p>يقوم فريق البحث المكوّن من <strong>د. أسماء جديتاوي</strong> &mdash; أستاذ مساعد، <strong>د. ديباشري ديباداتا</strong> &mdash; أستاذ مشارك، <strong>د. سارة المعايطة</strong> &mdash; باحثة دكتورة، <strong>د. إسراء أبو زيد</strong> &mdash; باحثة دكتورة، بإجراء دراسة بعنوان:</p>
-        <p style="font-weight:600;">«الثقة أم الاعتماد المفرط؟ دراسة في الحوسبة الاجتماعية حول نماذج اللغة الكبيرة القابلة للتفسير للكشف عن الاحتيال لدى المستخدمين الناطقين بالعربية»</p>
-        <p class="muted" dir="ltr" style="text-align:left;">Trust or Over-Reliance? A Social Computing Study of Explainable LLMs for Scam Detection Among Arabic-Speaking Users</p>
+        <p style="font-weight:600;">«مُقنِع لكنه خاطئ: كيف يُفرِط المستخدمون الناطقون بالعربية في الاعتماد على التفسيرات المولّدة بنماذج اللغة الكبيرة عند كشف الاحتيال في واتساب»</p>
+        <p class="muted" dir="ltr" style="text-align:left;">Convincing but Wrong: How Arabic-Speaking Users Over-Rely on LLM-Generated Explanations in WhatsApp Scam Detection</p>
         <p class="muted" dir="ltr" style="text-align:left;">Research team: Dr. Asma Jdaitawi (Assistant Professor), Dr. Debashree Debadatta (Associate Professor), Dr. Sara Al-Maaytah (Doctoral Researcher), Dr. Isra&rsquo;a Abuzaid (Doctoral Researcher).</p>
       </div>
       <div class="card">
         <h2>عن الدراسة</h2>
-        <p>هذه دراسة أكاديمية تبحث كيف يتعامل الأشخاص مع رسائل قد تكون احتيالية عندما يساعدهم مساعد ذكي في التقييم. ستشاهد 16 رسالة قصيرة، وتُبدي رأيك فيها على مرحلتين لكل رسالة.</p>
+        <p>هذه دراسة أكاديمية تبحث كيف يتعامل الأشخاص مع رسائل قد تكون احتيالية عندما يساعدهم مساعد ذكي في التقييم. ستشاهد عدداً من الرسائل القصيرة، وتُبدي رأيك في كل رسالة على مرحلتين.</p>
         <p class="muted">قد يخطئ المساعد الذكي المستخدم في هذه التجربة أحياناً، تماماً كما تفعل أي أداة ذكاء اصطناعي حقيقية. هذا جزء طبيعي من التجربة.</p>
-        <p class="muted">المشاركة طوعية بالكامل، ويمكنك التوقف في أي وقت دون أي التزام. البيانات تُجمع بدون اسمك الحقيقي وتُستخدم لأغراض بحثية أكاديمية فقط (رسالة/ورقة مؤتمر). المدة التقريبية: 12&ndash;15 دقيقة.</p>
+        <p class="muted">المشاركة طوعية بالكامل، ويمكنك التوقف في أي وقت دون أي التزام. البيانات تُجمع بدون اسمك الحقيقي وتُستخدم لأغراض بحثية أكاديمية فقط (رسالة/ورقة مؤتمر). المدة التقريبية: 12&ndash;15 دقيقة. حصلت الدراسة على الموافقة الأخلاقية من الجامعة الأردنية.</p>
         <div class="checkbox-row">
           <input type="checkbox" id="consentCk" ${state.consentChecked?'checked':''}/>
           <label for="consentCk">أوافق طواعيةً على المشاركة، وأؤكد أن عمري 18 سنة فأكثر.</label>
@@ -331,8 +403,9 @@
       <div class="card">
         <h2>بيانات الجلسة (يعبّئها الباحث)</h2>
         <div class="field">
-          <label for="pid">اسم المشارك (اختياري)</label>
-          <input type="text" id="pid" placeholder="مثال: أحمد" value="${state.participantId}"/>
+          <label for="plabel">اسم المشارك أو رمز يذكّر الباحث (اختياري)</label>
+          <input type="text" id="plabel" placeholder="اختياري &mdash; لا يُستخدم في التحليل" value="${state.participantLabel}"/>
+          <p class="badge-count">معرّف المشارك التلقائي (يُسجَّل مع البيانات): <span dir="ltr">${state.participantId}</span></p>
         </div>
         <div class="field">
           <label>المجموعة</label>
@@ -347,21 +420,24 @@
           <p class="badge-count">التوزيع الحالي على هذا الجهاز: أ = ${counts.A||0} | ب = ${counts.B||0} (المقترح: ${suggested==='A'?'أ':'ب'})</p>
         </div>
         <hr class="sep"/>
-        <p class="muted">ملاحظة إعداد لمرة واحدة: بيانات كل جلسة تُرسل تلقائياً بالبريد إلى e.abuzaid@ju.edu.jo (مع نسخة إلى a.jdaitawi@ju.edu.jo). أول مرة تشتغل الأداة، خدمة الإرسال (FormSubmit) بترسل بريد "تأكيد" لكل عنوان — لازم تفتحوا هالبريد وتضغطوا رابط التفعيل قبل ما توصل بيانات المشاركين الفعليين. جرّبوا جلسة وهمية أول مرة وتأكدوا إنه البريد وصل.</p>
+        <p class="muted">جميع الجلسات تُدار بحضور أحد أعضاء فريق البحث. بيانات كل جلسة تُرسل تلقائياً كملف JSON بالبريد إلى e.abuzaid@ju.edu.jo ومع نسخة إلى a.jdaitawi@ju.edu.jo. أول مرة تُشغَّل فيها الأداة، خدمة الإرسال (FormSubmit) ترسل بريد "تأكيد" لكل عنوان &mdash; افتحوا هذا البريد واضغطوا رابط التفعيل قبل تشغيل أي جلسة فعلية، وجرّبوا جلسة وهمية أول مرة للتأكد من وصول البريد.</p>
       </div>
       <button class="btn-primary" id="startBtn" ${(!state.consentChecked)?'disabled':''}>متابعة إلى بيانات المشارك</button>
     `;
     wrap.querySelector("#consentCk").addEventListener("change", function(e){
-      state.consentChecked = e.target.checked; render();
+      state.consentChecked = e.target.checked;
+      state.consentTimestamp = e.target.checked ? new Date().toISOString() : "";
+      render();
     });
-    wrap.querySelector("#pid").addEventListener("input", function(e){
-      state.participantId = e.target.value;
+    wrap.querySelector("#plabel").addEventListener("input", function(e){
+      state.participantLabel = e.target.value;
     });
     wrap.querySelectorAll('input[name=grp]').forEach(function(r){
       r.addEventListener("change", function(e){ state.group = e.target.value; });
     });
     wrap.querySelector("#startBtn").addEventListener("click", function(){
       if(!state.consentChecked) return;
+      if(!state.consentTimestamp) state.consentTimestamp = new Date().toISOString();
       state.screen = "demographics"; render();
     });
     return wrap;
@@ -369,9 +445,13 @@
 
   function renderDemographics(){
     var wrap = el('<div></div>');
-    var famSel = state.demo.familiarity;
+    var dl = state.demo.digitalLiteracy;
+    var fam = state.demo.scamFamiliarity;
+    var dlBtns = [1,2,3,4,5].map(function(n){
+      return `<button type="button" class="scale-btn ${dl===n?'selected':''}" data-dl="${n}">${n}</button>`;
+    }).join("");
     var famBtns = [1,2,3,4,5].map(function(n){
-      return `<button type="button" class="scale-btn ${famSel===n?'selected':''}" data-fam="${n}">${n}</button>`;
+      return `<button type="button" class="scale-btn ${fam===n?'selected':''}" data-fam="${n}">${n}</button>`;
     }).join("");
     wrap.innerHTML = `
       <p class="eyebrow">قبل البدء</p>
@@ -389,24 +469,74 @@
           </select>
         </div>
         <div class="field">
+          <label for="gender">الجنس</label>
+          <select id="gender">
+            <option value="">اختر...</option>
+            <option value="female" ${state.demo.gender==='female'?'selected':''}>أنثى</option>
+            <option value="male" ${state.demo.gender==='male'?'selected':''}>ذكر</option>
+            <option value="prefer_not" ${state.demo.gender==='prefer_not'?'selected':''}>أفضّل عدم الإجابة</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="dialect">اللهجة / الخلفية اللغوية</label>
+          <select id="dialect">
+            <option value="">اختر...</option>
+            <option value="jordanian" ${state.demo.dialect==='jordanian'?'selected':''}>أردنية</option>
+            <option value="levantine_other" ${state.demo.dialect==='levantine_other'?'selected':''}>شامية (غير أردنية)</option>
+            <option value="gulf" ${state.demo.dialect==='gulf'?'selected':''}>خليجية</option>
+            <option value="other" ${state.demo.dialect==='other'?'selected':''}>أخرى</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>كيف تقيّم مهاراتك في استخدام التقنية والإنترنت؟ (1 = ضعيفة جداً، 5 = ممتازة)</label>
+          <div class="scale-row" id="dlRow">${dlBtns}</div>
+        </div>
+        <div class="field">
           <label>ما مدى معرفتك برسائل النصب عبر واتساب/المكالمات؟ (1 = لا أعرف شيئاً، 5 = خبرة كبيرة)</label>
           <div class="scale-row" id="famRow">${famBtns}</div>
         </div>
+        <div class="field">
+          <label for="exposure">هل سبق أن وصلتك رسالة نصب تستهدفك شخصياً؟</label>
+          <select id="exposure">
+            <option value="">اختر...</option>
+            <option value="yes" ${state.demo.scamExposure==='yes'?'selected':''}>نعم</option>
+            <option value="no" ${state.demo.scamExposure==='no'?'selected':''}>لا</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="victim">هل سبق أن خسرت مالاً أو بيانات بسبب رسالة نصب؟</label>
+          <select id="victim">
+            <option value="">اختر...</option>
+            <option value="yes" ${state.demo.scamVictimisation==='yes'?'selected':''}>نعم</option>
+            <option value="no" ${state.demo.scamVictimisation==='no'?'selected':''}>لا</option>
+          </select>
+        </div>
       </div>
-      <button class="btn-primary" id="next" ${(!state.demo.age || !state.demo.familiarity)?'disabled':''}>متابعة إلى شرح التجربة</button>
+      <button class="btn-primary" id="next" ${demoComplete()?'':'disabled'}>متابعة إلى شرح التجربة</button>
     `;
-    wrap.querySelector("#age").addEventListener("change", function(e){
-      state.demo.age = e.target.value;
-      wrap.querySelector("#next").disabled = !(state.demo.age && state.demo.familiarity);
+    function syncNext(){
+      var nb = wrap.querySelector("#next");
+      if(nb) nb.disabled = !demoComplete();
+    }
+    wrap.querySelector("#age").addEventListener("change", function(e){ state.demo.age = e.target.value; syncNext(); });
+    wrap.querySelector("#gender").addEventListener("change", function(e){ state.demo.gender = e.target.value; syncNext(); });
+    wrap.querySelector("#dialect").addEventListener("change", function(e){ state.demo.dialect = e.target.value; syncNext(); });
+    wrap.querySelector("#exposure").addEventListener("change", function(e){ state.demo.scamExposure = e.target.value; syncNext(); });
+    wrap.querySelector("#victim").addEventListener("change", function(e){ state.demo.scamVictimisation = e.target.value; syncNext(); });
+    wrap.querySelectorAll("[data-dl]").forEach(function(b){
+      b.addEventListener("click", function(){
+        state.demo.digitalLiteracy = parseInt(b.getAttribute("data-dl"),10);
+        render();
+      });
     });
     wrap.querySelectorAll("[data-fam]").forEach(function(b){
       b.addEventListener("click", function(){
-        state.demo.familiarity = parseInt(b.getAttribute("data-fam"),10);
+        state.demo.scamFamiliarity = parseInt(b.getAttribute("data-fam"),10);
         render();
       });
     });
     wrap.querySelector("#next").addEventListener("click", function(){
-      if(!state.demo.age || !state.demo.familiarity) return;
+      if(!demoComplete()) return;
       state.screen = "instructions"; render();
     });
     return wrap;
@@ -419,11 +549,11 @@
       <h1>كيف تسير كل رسالة</h1>
       <div class="card">
         <ol class="steps">
-          <li><strong>تقرأ الرسالة</strong> وتُبدي رأيك: هل هي "احتيال" أم "آمنة"؟ ثم تحدد مدى ثقتك بقرارك (1&ndash;5).</li>
+          <li><strong>تقرأ الرسالة</strong> وتُبدي رأيك: هل هي "احتيال" أم "آمنة"؟ ثم تحدد مدى ثقتك بقرارك على مؤشر متصل من 0 إلى 100.</li>
           <li><strong>يظهر لك تقييم المساعد الذكي</strong> لنفس الرسالة.</li>
-          <li><strong>تُعطى قرارك النهائي</strong> بعد رؤية تقييم المساعد &mdash; قد يكون نفس رأيك الأول أو مختلفاً، ومرة أخرى تحدد ثقتك.</li>
+          <li><strong>تُعطى قرارك النهائي</strong> بعد رؤية تقييم المساعد &mdash; قد يكون نفس رأيك الأول أو مختلفاً، ومرة أخرى تحدد ثقتك على المؤشر نفسه.</li>
         </ol>
-        <p class="muted">لا توجد إجابات "صحيحة" متوقعة منك مسبقاً &mdash; المطلوب رأيك الحقيقي في كل مرحلة. عدد الرسائل: 16. لا حاجة للتفكير طويلاً؛ أجب بأول انطباع منطقي.</p>
+        <p class="muted">لا توجد إجابات "صحيحة" متوقعة منك مسبقاً &mdash; المطلوب رأيك الحقيقي في كل مرحلة. ستظهر أيضاً رسالتان قصيرتان للتحقق من الانتباه تطلب منك اختياراً محدداً بشكل صريح. لا حاجة للتفكير طويلاً؛ أجب بأول انطباع منطقي.</p>
       </div>
       <button class="btn-primary" id="beginBtn">ابدأ التجربة</button>
     `;
@@ -445,22 +575,121 @@
     render();
   }
 
+  // shared confidence-slider markup + wiring
+  function confSliderHTML(promptText){
+    var v = (state.curConfidence==null) ? 50 : state.curConfidence;
+    var untouched = (state.curConfidence==null) ? " untouched" : "";
+    var readout = (state.curConfidence==null)
+      ? `<div class="conf-readout empty" id="confReadout">حرّك المؤشر لتحديد درجة ثقتك</div>`
+      : `<div class="conf-readout" id="confReadout">${state.curConfidence} / 100</div>`;
+    return `
+      <p style="font-weight:600;margin:16px 0 4px;">${promptText}</p>
+      <input type="range" min="0" max="100" step="1" value="${v}" class="conf-slider${untouched}" id="confSlider"/>
+      <div class="scale-caption"><span>0 &mdash; غير واثق إطلاقاً</span><span>واثق تماماً &mdash; 100</span></div>
+      ${readout}
+    `;
+  }
+  function wireConfSlider(wrap, nextBtnId){
+    var slider = wrap.querySelector("#confSlider");
+    var readout = wrap.querySelector("#confReadout");
+    if(!slider) return;
+    slider.addEventListener("input", function(){
+      state.curConfidence = parseInt(slider.value,10);
+      slider.classList.remove("untouched");
+      readout.classList.remove("empty");
+      readout.textContent = state.curConfidence + " / 100";
+      var nb = wrap.querySelector("#"+nextBtnId);
+      if(nb) nb.disabled = !(state.curDecision && state.curConfidence!=null);
+    });
+  }
+
+  function baseRecord(stim){
+    return {
+      participant_id: state.participantId,
+      participant_label: state.participantLabel,
+      group: state.group,
+      age_range: state.demo.age,
+      gender: state.demo.gender,
+      dialect_background: state.demo.dialect,
+      digital_literacy: state.demo.digitalLiteracy,
+      scam_familiarity: state.demo.scamFamiliarity,
+      scam_exposure: state.demo.scamExposure,
+      scam_victimisation: state.demo.scamVictimisation,
+      order_position: state.idx+1,
+      item_id: stim.id,
+      consent_version: CONSENT_VERSION,
+      consent_timestamp: state.consentTimestamp,
+      tool_version: TOOL_VERSION,
+      stimulus_set_version: STIMULUS_SET_VERSION,
+      researcher_administered: true
+    };
+  }
+
   function renderTrial(){
     var trialNum = state.idx+1;
     var total = state.session.length;
-    var pct = Math.round(((state.idx) + (state.stage-1)*0.5) / total * 100);
     var current = state.session[state.idx];
     var stim = current.stim;
+    var isAttn = !!current.attention;
+
+    var pct = isAttn
+      ? Math.round((state.idx + 0.5) / total * 100)
+      : Math.round(((state.idx) + (state.stage-1)*0.5) / total * 100);
 
     var wrap = el('<div></div>');
+    var stageLabel = isAttn ? "رسالة تحقّق" : ("مرحلة " + state.stage + " من 2");
     var top = `
       <div class="progress-wrap">
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%;"></div></div>
-        <div class="progress-label">رسالة ${trialNum} من ${total} &middot; مرحلة ${state.stage} من 2</div>
+        <div class="progress-label">رسالة ${trialNum} من ${total} &middot; ${stageLabel}</div>
       </div>
       <div class="msg-bubble">${stim.text}</div>
     `;
 
+    // ----- Attention-check trial: single stage, no AI reveal -----
+    if(isAttn){
+      wrap.innerHTML = top + `
+        <div class="attn-banner">هذه رسالة للتحقق من الانتباه فقط، وليست جزءاً من رسائل التقييم.</div>
+        <div class="card">
+          <p style="font-weight:600;margin-bottom:10px;">اختر الإجابة المطلوبة في نص الرسالة أعلاه.</p>
+          <div class="choice-row">
+            <button type="button" class="choice-btn ${state.curDecision==='scam'?'selected scam':''}" data-d="scam">احتيال</button>
+            <button type="button" class="choice-btn ${state.curDecision==='safe'?'selected safe':''}" data-d="safe">آمنة</button>
+          </div>
+          ${confSliderHTML("ما مدى ثقتك بهذا القرار؟")}
+          <button class="btn-primary" id="attnNext" ${(!state.curDecision||state.curConfidence==null)?'disabled':''}>متابعة</button>
+        </div>
+      `;
+      wrap.querySelectorAll("[data-d]").forEach(function(b){
+        b.addEventListener("click", function(){ state.curDecision = b.getAttribute("data-d"); render(); });
+      });
+      wireConfSlider(wrap, "attnNext");
+      var an = wrap.querySelector("#attnNext");
+      if(an) an.addEventListener("click", function(){
+        if(!state.curDecision || state.curConfidence==null) return;
+        var rec = baseRecord(stim);
+        rec.is_attention_check = true;
+        rec.attention_check_expected = stim.expected;
+        rec.attention_check_pass = (state.curDecision === stim.expected);
+        rec.message_veracity = null;
+        rec.message_source = null;
+        rec.ai_verdict = null;
+        rec.ai_correct = null;
+        rec.initial_decision = state.curDecision;
+        rec.initial_confidence = state.curConfidence;
+        rec.stage1_response_ms = Date.now() - state.t1start;
+        rec.final_decision = null;
+        rec.final_confidence = null;
+        rec.decision_time_ms = null;
+        rec.switched_decision = null;
+        state.records.push(rec);
+        if(state.idx+1 < total){ state.idx += 1; startTrial(); }
+        else { state.screen = "debrief"; render(); }
+      });
+      return wrap;
+    }
+
+    // ----- Stage 1: independent judgement -----
     if(state.stage===1){
       wrap.innerHTML = top + `
         <div class="card">
@@ -469,21 +698,17 @@
             <button type="button" class="choice-btn ${state.curDecision==='scam'?'selected scam':''}" data-d="scam">احتيال</button>
             <button type="button" class="choice-btn ${state.curDecision==='safe'?'selected safe':''}" data-d="safe">آمنة</button>
           </div>
-          <p style="font-weight:600;margin:16px 0 4px;">ما مدى ثقتك بهذا القرار؟</p>
-          <div class="scale-row">${[1,2,3,4,5].map(function(n){return `<button type="button" class="scale-btn ${state.curConfidence===n?'selected':''}" data-c="${n}">${n}</button>`;}).join("")}</div>
-          <div class="scale-caption"><span>غير واثق إطلاقاً</span><span>واثق جداً</span></div>
-          <button class="btn-primary" id="s1next" ${(!state.curDecision||!state.curConfidence)?'disabled':''}>متابعة</button>
+          ${confSliderHTML("ما مدى ثقتك بهذا القرار؟")}
+          <button class="btn-primary" id="s1next" ${(!state.curDecision||state.curConfidence==null)?'disabled':''}>متابعة</button>
         </div>
       `;
       wrap.querySelectorAll("[data-d]").forEach(function(b){
         b.addEventListener("click", function(){ state.curDecision = b.getAttribute("data-d"); render(); });
       });
-      wrap.querySelectorAll("[data-c]").forEach(function(b){
-        b.addEventListener("click", function(){ state.curConfidence = parseInt(b.getAttribute("data-c"),10); render(); });
-      });
+      wireConfSlider(wrap, "s1next");
       var nextBtn = wrap.querySelector("#s1next");
       if(nextBtn) nextBtn.addEventListener("click", function(){
-        if(!state.curDecision || !state.curConfidence) return;
+        if(!state.curDecision || state.curConfidence==null) return;
         state.t1end = Date.now();
         state.initDecision = state.curDecision;
         state.initConfidence = state.curConfidence;
@@ -492,73 +717,87 @@
         state.t2reveal = Date.now();
         render();
       });
-    } else {
-      var aiOut = current.aiCorrect ? stim.correct : stim.wrong;
-      var showExplanation = state.group === "B";
-      wrap.innerHTML = top + `
-        <div class="assistant-card">
-          <div class="assistant-label">تقييم المساعد الذكي</div>
-          <span class="verdict-badge ${aiOut.verdict}">${aiOut.verdict==='scam' ? 'احتيال' : 'آمنة'}</span>
-          ${showExplanation ? `<div class="assistant-explanation">${aiOut.explanation}</div>` : ``}
-        </div>
-        <div class="card">
-          <p style="font-weight:600;margin-bottom:10px;">بعد رؤية تقييم المساعد، ما قرارك النهائي؟</p>
-          <div class="choice-row">
-            <button type="button" class="choice-btn ${state.curDecision==='scam'?'selected scam':''}" data-d="scam">احتيال</button>
-            <button type="button" class="choice-btn ${state.curDecision==='safe'?'selected safe':''}" data-d="safe">آمنة</button>
-          </div>
-          <p style="font-weight:600;margin:16px 0 4px;">ما مدى ثقتك بهذا القرار النهائي؟</p>
-          <div class="scale-row">${[1,2,3,4,5].map(function(n){return `<button type="button" class="scale-btn ${state.curConfidence===n?'selected':''}" data-c="${n}">${n}</button>`;}).join("")}</div>
-          <div class="scale-caption"><span>غير واثق إطلاقاً</span><span>واثق جداً</span></div>
-          <button class="btn-primary" id="s2next" ${(!state.curDecision||!state.curConfidence)?'disabled':''}>${state.idx+1<total?'الرسالة التالية':'إنهاء'}</button>
-        </div>
-      `;
-      wrap.querySelectorAll("[data-d]").forEach(function(b){
-        b.addEventListener("click", function(){ state.curDecision = b.getAttribute("data-d"); render(); });
-      });
-      wrap.querySelectorAll("[data-c]").forEach(function(b){
-        b.addEventListener("click", function(){ state.curConfidence = parseInt(b.getAttribute("data-c"),10); render(); });
-      });
-      var endBtn = wrap.querySelector("#s2next");
-      if(endBtn) endBtn.addEventListener("click", function(){
-        if(!state.curDecision || !state.curConfidence) return;
-        var t3 = Date.now();
-        state.records.push({
-          participant_id: state.participantId,
-          group: state.group,
-          age_range: state.demo.age,
-          familiarity: state.demo.familiarity,
-          order_position: state.idx+1,
-          item_id: stim.id,
-          message_veracity: stim.veracity,
-          message_source: stim.source,
-          ai_verdict: aiOut.verdict,
-          ai_correct: current.aiCorrect,
-          initial_decision: state.initDecision,
-          initial_confidence: state.initConfidence,
-          stage1_response_ms: state.t1end - state.t1start,
-          final_decision: state.curDecision,
-          final_confidence: state.curConfidence,
-          decision_time_ms: t3 - state.t2reveal,
-          switched_decision: state.initDecision !== state.curDecision
-        });
-        if(state.idx+1 < total){
-          state.idx += 1;
-          startTrial();
-        } else {
-          state.screen = "debrief"; render();
-        }
-      });
+      return wrap;
     }
+
+    // ----- Stage 2: final decision after AI reveal -----
+    var aiOut = current.aiCorrect ? stim.correct : stim.wrong;
+    var showExplanation = state.group === "B";
+    wrap.innerHTML = top + `
+      <div class="assistant-card">
+        <div class="assistant-label">تقييم المساعد الذكي</div>
+        <span class="verdict-badge ${aiOut.verdict}">${aiOut.verdict==='scam' ? 'احتيال' : 'آمنة'}</span>
+        ${showExplanation ? `<div class="assistant-explanation">${aiOut.explanation}</div>` : ``}
+      </div>
+      <div class="card">
+        <p style="font-weight:600;margin-bottom:10px;">بعد رؤية تقييم المساعد، ما قرارك النهائي؟</p>
+        <div class="choice-row">
+          <button type="button" class="choice-btn ${state.curDecision==='scam'?'selected scam':''}" data-d="scam">احتيال</button>
+          <button type="button" class="choice-btn ${state.curDecision==='safe'?'selected safe':''}" data-d="safe">آمنة</button>
+        </div>
+        ${confSliderHTML("ما مدى ثقتك بهذا القرار النهائي؟")}
+        <button class="btn-primary" id="s2next" ${(!state.curDecision||state.curConfidence==null)?'disabled':''}>${state.idx+1<total?'الرسالة التالية':'إنهاء'}</button>
+      </div>
+    `;
+    wrap.querySelectorAll("[data-d]").forEach(function(b){
+      b.addEventListener("click", function(){ state.curDecision = b.getAttribute("data-d"); render(); });
+    });
+    wireConfSlider(wrap, "s2next");
+    var endBtn = wrap.querySelector("#s2next");
+    if(endBtn) endBtn.addEventListener("click", function(){
+      if(!state.curDecision || state.curConfidence==null) return;
+      var t3 = Date.now();
+      var rec = baseRecord(stim);
+      rec.is_attention_check = false;
+      rec.attention_check_expected = null;
+      rec.attention_check_pass = null;
+      rec.message_veracity = stim.veracity;
+      rec.message_source = stim.source;
+      rec.ai_verdict = aiOut.verdict;
+      rec.ai_correct = current.aiCorrect;
+      rec.initial_decision = state.initDecision;
+      rec.initial_confidence = state.initConfidence;
+      rec.stage1_response_ms = state.t1end - state.t1start;
+      rec.final_decision = state.curDecision;
+      rec.final_confidence = state.curConfidence;
+      rec.decision_time_ms = t3 - state.t2reveal;
+      rec.switched_decision = state.initDecision !== state.curDecision;
+      state.records.push(rec);
+      if(state.idx+1 < total){
+        state.idx += 1;
+        startTrial();
+      } else {
+        state.screen = "debrief"; render();
+      }
+    });
     return wrap;
   }
 
   function renderDebrief(){
     var wrap = el('<div></div>');
+    var attnPassed = state.records.filter(function(r){ return r.is_attention_check && r.attention_check_pass; }).length;
+    var attnTotal = state.records.filter(function(r){ return r.is_attention_check; }).length;
     var json = JSON.stringify({
       participant_id: state.participantId,
+      participant_label: state.participantLabel,
       group: state.group,
-      demographics: state.demo,
+      demographics: {
+        age_range: state.demo.age,
+        gender: state.demo.gender,
+        dialect_background: state.demo.dialect,
+        digital_literacy: state.demo.digitalLiteracy,
+        scam_familiarity: state.demo.scamFamiliarity,
+        scam_exposure: state.demo.scamExposure,
+        scam_victimisation: state.demo.scamVictimisation
+      },
+      consent_version: CONSENT_VERSION,
+      consent_timestamp: state.consentTimestamp,
+      tool_version: TOOL_VERSION,
+      stimulus_set_version: STIMULUS_SET_VERSION,
+      researcher_administered: true,
+      n_trials_logged: state.records.length,
+      attention_checks_passed: attnPassed,
+      attention_checks_total: attnTotal,
       trials: state.records
     }, null, 2);
     wrap.innerHTML = `
@@ -566,7 +805,7 @@
       <h1>توضيح الغرض من الدراسة</h1>
       <div class="card">
         <p>شكراً لمشاركتك. نوضح الآن هدف الدراسة بالكامل: بعض تقييمات المساعد الذكي التي شاهدتها كانت <strong>خاطئة عمداً</strong>، بهدف قياس مدى اعتماد الأشخاص على توصيات الذكاء الاصطناعي حتى عندما تكون غير صحيحة، خصوصاً عند وجود تفسير مصاحب للتقييم.</p>
-        <p class="muted">بياناتك محفوظة برمز المشارك فقط دون أي معلومة تعرّف هويتك، وستُستخدم في تحليل إحصائي مجمّع ضمن بحث أكاديمي. إن كانت لديك أي أسئلة أو رغبت بسحب بياناتك، تواصل مع الباحثة عبر [بريد الباحثة].</p>
+        <p class="muted">بياناتك محفوظة برمز المشارك فقط دون أي معلومة تعرّف هويتك، وستُستخدم في تحليل إحصائي مجمّع ضمن بحث أكاديمي. إن كانت لديك أي أسئلة أو رغبت بسحب بياناتك، تواصل مع الباحثة عبر ${RESEARCHER_EMAIL}.</p>
       </div>
       <div class="card">
         <h2>إرسال بيانات هذه الجلسة</h2>
@@ -614,10 +853,12 @@
     });
     wrap.querySelector("#restart").addEventListener("click", function(){
       state.screen = "consent";
-      state.participantId = ""; state.group = null;
-      state.demo = {age:"", familiarity:null};
+      state.participantId = genParticipantId();
+      state.participantLabel = "";
+      state.group = null;
+      state.demo = {age:"", gender:"", dialect:"", digitalLiteracy:null, scamFamiliarity:null, scamExposure:"", scamVictimisation:""};
       state.session = []; state.idx = 0; state.records = [];
-      state.consentChecked = false;
+      state.consentChecked = false; state.consentTimestamp = "";
       render();
     });
     return wrap;
