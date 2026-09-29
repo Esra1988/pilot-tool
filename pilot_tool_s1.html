@@ -483,6 +483,10 @@
     }).then(function(res){
       if(!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
+    }).then(function(j){
+      // FormSubmit answers HTTP 200 with success:"false" when the form still needs activation
+      if(!j || String(j.success) !== "true") throw new Error((j && j.message) || "not sent");
+      return j;
     });
   }
 
