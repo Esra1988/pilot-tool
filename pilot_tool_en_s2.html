@@ -164,11 +164,13 @@
   // ---------- Versions / constants ----------
   // GROUP and TOOL_VERSION are filled in per build by build_pilot_builds.py
   var GROUP = "B";
-  var TOOL_VERSION = "pilot_tool_en_s2_v3_2026-09-29";
-  var CONSENT_VERSION = "consent_en_v3_2026-09-29";
+  var TOOL_VERSION = "pilot_tool_en_s2_v3.1_2026-09-30";
+  var CONSENT_VERSION = "consent_en_v4_2026-09-30";
   var STIMULUS_SET_VERSION = "condition_c_16items_en_v2";
   var ALLOCATION_LIST_VERSION = "alloc_v1_2026-09-29";
   var RESEARCHER_EMAIL = "e.abuzaid@ju.edu.jo";
+  // Google Apps Script Web App that appends the session to the pilot Google Sheet (filled in by the build)
+  var DATA_ENDPOINT = "https://script.google.com/macros/s/AKfycbySNDXxWDZHK2oROTJqDCdnobOSCFp8QWxGhwOEo2Pg7sCemNr4JyG7qYTiXcxrwygF/exec";
 
   // ---------- Stimuli: neutral ids, unlabelled variants, pre-computed balanced schedules ----------
   // ENGLISH REVIEW BUILD: faithful English renderings of the Jordanian-Arabic messages.
@@ -472,28 +474,27 @@
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
   }
 
-  function sendEmailData(jsonStr, participantId, group){
+  function sendSessionData(jsonStr, participantId, group){
     var payload = {
-      _subject: "Pilot participant " + (participantId||"unknown") + " - group " + group + " [EN review build]",
-      _cc: "a.jdaitawi@ju.edu.jo",
-      _captcha: "false",
-      _template: "box",
       participant_id: participantId,
       group: group,
       allocation_slot: ALLOCATION_SLOT,
       tool_version: TOOL_VERSION,
-      trials_json: jsonStr
+      trials_json: JSON.stringify(JSON.parse(jsonStr)) // same data, no indentation (keepalive bodies are capped at 64 KB)
     };
-    return fetch("https://formsubmit.co/ajax/e.abuzaid@ju.edu.jo", {
+    // text/plain keeps this a "simple" CORS request (Apps Script cannot answer a preflight);
+    // keepalive lets the request finish even if the participant closes the page while it is in flight
+    return fetch(DATA_ENDPOINT, {
       method: "POST",
-      headers: {"Content-Type":"application/json","Accept":"application/json"},
-      body: JSON.stringify(payload)
+      headers: {"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify(payload),
+      keepalive: true
     }).then(function(res){
       if(!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
     }).then(function(j){
-      // FormSubmit answers HTTP 200 with success:"false" when the form still needs activation
-      if(!j || String(j.success) !== "true") throw new Error((j && j.message) || "not sent");
+      // the script answers {result:"success"} only after the rows are written to the sheet
+      if(!j || j.result !== "success") throw new Error((j && j.message) || "not saved");
       return j;
     });
   }
@@ -572,7 +573,7 @@
         <p class="muted">The AI assistant used in this experiment is sometimes wrong, just like any real AI tool. That is a normal part of the experiment.</p>
         <p class="muted">Participation is entirely voluntary and you may stop at any time with no obligation. Data are collected without your real name and used for academic research purposes only (a paper / conference paper). Approximate duration: 12&ndash;15 minutes. The study has ethical approval from the University of Jordan.</p>
         <p class="muted">At the end of the session we will ask you how much you relied on AI overall.</p>
-        <p class="muted">When the session ends, your answers are sent automatically through an external email service (FormSubmit) to the researchers' university addresses (e.abuzaid@ju.edu.jo and a.jdaitawi@ju.edu.jo); the service does not keep a copy of the data.</p>
+        <p class="muted">When the session ends, your answers are saved automatically to a private spreadsheet in Google Sheets (Google) that only the research team can access; the data are stored on Google's servers.</p>
         <div class="attn-banner">Please complete the study on one device, in one continuous sitting, and without help from anyone else &mdash; we need your own judgement only.</div>
         <div class="checkbox-row">
           <input type="checkbox" id="consentCk" ${state.consentChecked?'checked':''}/>
@@ -1081,7 +1082,7 @@
       </div>
       <div class="card">
         <h2>Send this session's data</h2>
-        <p class="status-line" id="emailStatus">Sending data by email...</p>
+        <p class="status-line" id="emailStatus">Sending data... please keep this page open for a moment until the success message appears.</p>
         <button class="btn-secondary" id="retryEmail" style="display:none;">Retry sending</button>
         <hr class="sep"/>
         <p class="muted">If a message says sending failed, please download the file below and email it as an attachment to ${RESEARCHER_EMAIL} (or copy the text and send it). If sending succeeded, nothing else is needed and you can close the page.</p>
@@ -1097,10 +1098,10 @@
     function attemptEmail(){
       var status = wrap.querySelector("#emailStatus");
       var retry = wrap.querySelector("#retryEmail");
-      status.textContent = "Sending data by email...";
+      status.textContent = "Sending data... please keep this page open for a moment until the success message appears.";
       retry.style.display = "none";
-      sendEmailData(json, state.participantId, state.group).then(function(){
-        status.textContent = "Data sent by email successfully.";
+      sendSessionData(json, state.participantId, state.group).then(function(){
+        status.textContent = "Data sent successfully.";
       }).catch(function(err){
         status.textContent = "Automatic sending failed (check your internet connection, then press “Retry sending”). If it keeps failing, download the file below and send it to " + RESEARCHER_EMAIL + ".";
         retry.style.display = "inline-block";
